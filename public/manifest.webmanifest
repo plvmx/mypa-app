@@ -1,0 +1,19 @@
+{
+  "name": "MyPA — Personal Assistant",
+  "short_name": "MyPA",
+  "description": "Capture projects, interests, thoughts and plans in one place.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0b0f",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

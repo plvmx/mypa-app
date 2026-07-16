@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /Users/peterviertmann/Development/ 2>&1)",
+      "Bash(npm -v)",
+      "Bash(git --version)",
+      "Bash(npm ping *)",
+      "Bash(npx --version)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(git mv *)"
+    ]
+  }
+}
