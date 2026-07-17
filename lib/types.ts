@@ -37,3 +37,21 @@ export interface Note {
   created_at: string;
   updated_at: string;
 }
+
+/** The full row data captured inside a Snapshot. */
+export interface SnapshotData {
+  projects: Project[];
+  notes: Note[];
+}
+
+/**
+ * A point-in-time backup of a user's projects + notes, restorable from the
+ * admin panel. Created manually; never edited in place.
+ */
+export interface Snapshot {
+  id: string;
+  user_id: string;
+  label: string | null;
+  data: SnapshotData;
+  created_at: string;
+}

@@ -30,6 +30,19 @@ const NAV: NavItem[] = [
       </svg>
     ),
   },
+  {
+    href: '/app/admin',
+    label: 'Admin',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-6 w-6">
+        <path
+          d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
 ];
 
 /**

@@ -53,8 +53,9 @@ npx vitest run lib/services/__tests__/projectService.test.ts   # Single file
 
 ## Environment setup
 1. `cp .env.local.example .env.local` and fill in the new Supabase project's URL + anon key.
-2. Run `supabase/migrations/0001_init.sql` in the Supabase SQL Editor.
+2. Run `supabase/migrations/0001_init.sql`, `0002_grants.sql`, and `0003_snapshots.sql` (in order) in the Supabase SQL Editor.
 3. In Supabase Auth settings, add the site URL and `…/auth/confirm` as a redirect URL.
+4. Data API settings: "Automatically expose new tables" is left off. Every new table's migration must include explicit `grant ... to authenticated` statements (see `0002_grants.sql`) — RLS alone is not enough; Postgres checks table-level grants before RLS is evaluated.
 
 ---
 
@@ -80,13 +81,14 @@ All database access goes through service modules in `lib/services/`. Pages and c
 
 - **`lib/services/projectService.ts`** — CRUD for `projects`: `getProjects`, `getProjectById`, `createProject`, `updateProject`, `deleteProject`.
 - **`lib/services/noteService.ts`** — CRUD for `notes`: `getNotes` (filter by project, `null` for inbox, or all), `getNoteById`, `createNote`, `updateNote`, `deleteNote`.
+- **`lib/services/snapshotService.ts`** — manual DB backups: `getSnapshots`, `createSnapshot` (captures all current projects + notes as one row), `deleteSnapshot`, `restoreSnapshot` (delegates to the `restore_snapshot` Postgres function for an atomic wipe + repopulate — the JS client can't express that as one transaction).
 
 `user_id` is set by a database default (`auth.uid()`) and fenced by RLS, so services never pass a user id.
 
 ### Key shared modules
 | File | Purpose |
 |------|---------|
-| `lib/types.ts` | Shared interfaces (`Project`, `Note`) — keep in sync with the SQL schema |
+| `lib/types.ts` | Shared interfaces (`Project`, `Note`, `Snapshot`) — keep in sync with the SQL schema |
 | `lib/errorUtils.ts` | `getErrorMessage()` — safe error-to-string coercion |
 
 ### Component structure
@@ -102,21 +104,24 @@ All database access goes through service modules in `lib/services/`. Pages and c
 | `/app` | Home — projects / interests list + quick create |
 | `/app/projects/[id]` | Project detail — its notes + capture box |
 | `/app/notes` | Notes inbox — all notes newest-first + quick capture |
+| `/app/admin` | Admin panel — take/restore/delete database snapshots |
 
 ### Database tables
 - `projects` — top-level containers; `status` is `'active'` / `'archived'`
 - `notes` — free-form thoughts; `project_id` nullable (null = unfiled inbox note)
+- `snapshots` — point-in-time backups; `data` jsonb holds `{ projects, notes }` at capture time. Write-once (created/deleted, never updated).
 
-Both have RLS policies fencing rows to `auth.uid()` and an `updated_at` trigger.
+All three have RLS policies fencing rows to `auth.uid()`; `projects`/`notes` also have an `updated_at` trigger. Since "Automatically expose new tables" is off, each table's migration also grants base privileges to `authenticated` explicitly (see `0002_grants.sql`, and the grant statements in `0003_snapshots.sql`).
 
 ---
 
 ## Roadmap (iterative — expand as priorities evolve)
 The MVP is deliberately small. Likely next slices, roughly in order:
-1. **Goals** — objectives with target dates + status, optionally tied to a project.
-2. **Tasks + reminders** — actionable items with due dates and an in-app "Today" view.
-3. **Editing** — inline edit for projects/notes (services already support `update*`).
-4. **Tags / search** across notes.
-5. **Notifications** — revisit web push or email once the core is solid.
+1. ~~**Admin panel + manual DB snapshots/restore**~~ — done (`/app/admin`, `snapshotService.ts`).
+2. **Goals** — objectives with target dates + status, optionally tied to a project.
+3. **Tasks + reminders** — actionable items with due dates and an in-app "Today" view.
+4. **Editing** — inline edit for projects/notes (services already support `update*`).
+5. **Tags / search** across notes.
+6. **Notifications** — revisit web push or email once the core is solid.
 
 Keep the service-layer + tested-first discipline as each slice lands.
