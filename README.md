@@ -16,9 +16,11 @@ cp .env.local.example .env.local
 ```
 
 ### 3. Create the database schema
-In the Supabase dashboard → **SQL Editor**, paste and run the contents of
-[`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
-This creates the `projects` and `notes` tables with Row-Level Security.
+In the Supabase dashboard → **SQL Editor**, paste and run each of these **in order**:
+[`0001_init.sql`](supabase/migrations/0001_init.sql) (creates `projects` + `notes` with RLS),
+[`0002_grants.sql`](supabase/migrations/0002_grants.sql) (grants table access to `authenticated` —
+required because "Automatically expose new tables" should stay **off** in Data API settings),
+[`0003_snapshots.sql`](supabase/migrations/0003_snapshots.sql) (adds manual backup/restore support).
 
 ### 4. Configure auth redirects
 In Supabase → **Authentication → URL Configuration**:
