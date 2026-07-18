@@ -10,16 +10,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Push feature branches to origin (`git push origin <feature-branch>`)
 - Create PRs (`gh pr create`) — include summary and test plan
 - Check CI status and fix failures, pushing follow-up commits to the same branch
+- **Merging a PR to main** (`gh pr merge`) once all four checks (lint/type-check/tests/build) are green — main auto-deploys to production. This is a personal project where the consequences of a production issue are minimal, so Peter doesn't require manual verification or a separate approval before merge/deploy — fix forward if something's wrong.
 
 ### Always pause and wait for explicit "go ahead"
-- **Merging a PR to main** (`gh pr merge`) — main auto-deploys to production
 - **Pushing directly to main** — ask first
 - **Force-pushing anything** — never without discussion
 
 ### Communication
 - After every commit, state: branch name, short commit hash, one-line summary
 - After every push, confirm where it went and whether CI ran
-- When creating a PR, share the URL for review before approving the merge
+- When creating a PR, share the URL, then merge once checks are green
 
 ## Branch naming
 `<type>/<short-description>` — e.g. `feat/goals`, `fix/note-ordering`, `chore/update-deps`
@@ -36,7 +36,7 @@ Never suppress lint errors with disable comments unless there is no correct refa
 ## Deployment
 - `main` branch → auto-deploys to production via Vercel.
 - A **new Supabase organisation/project** backs this app — kept distinct from the AFJ campaign app. Never point this app at the AFJ database.
-- Do not merge until checks are green and Peter has approved the PR.
+- Do not merge until all four checks (lint/type-check/tests/build) are green. No separate manual-testing or approval gate is required before merge/deploy — see the Git workflow section above.
 
 ---
 
