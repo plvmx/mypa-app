@@ -7,6 +7,7 @@ import {
   createProject,
   updateProject,
   deleteProject,
+  moveProject,
 } from '@/lib/services/projectService';
 import type { Project } from '@/lib/types';
 
@@ -23,6 +24,7 @@ const sampleProject: Project = {
   description: 'Campaign work',
   color: '#3b82f6',
   status: 'active',
+  parent_id: null,
   created_at: '2026-07-14T00:00:00Z',
   updated_at: '2026-07-14T00:00:00Z',
 };
@@ -83,7 +85,18 @@ describe('createProject', () => {
     await createProject({ title: '  AFJ  ', description: '   ' });
 
     expect(builder.insert).toHaveBeenCalledWith([
-      { title: 'AFJ', description: null, color: null },
+      { title: 'AFJ', description: null, color: null, parent_id: null },
+    ]);
+  });
+
+  it('passes parent_id through when creating a sub-project', async () => {
+    const builder = makeQueryBuilder({ data: sampleProject, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await createProject({ title: 'Sub', parent_id: 'root1' });
+
+    expect(builder.insert).toHaveBeenCalledWith([
+      { title: 'Sub', description: null, color: null, parent_id: 'root1' },
     ]);
   });
 
@@ -110,8 +123,54 @@ describe('updateProject', () => {
   });
 });
 
+describe('moveProject', () => {
+  const root1: Project = { ...sampleProject, id: 'root1', parent_id: null };
+  const child1: Project = { ...sampleProject, id: 'child1', parent_id: 'root1' };
+
+  it('rejects a project being its own parent without querying', async () => {
+    await expect(moveProject('root1', 'root1')).rejects.toThrow('cannot be its own parent');
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('rejects moving a project into its own sub-project', async () => {
+    const listBuilder = makeQueryBuilder({ data: [root1, child1], error: null });
+    mockFrom.mockReturnValueOnce(listBuilder);
+
+    await expect(moveProject('root1', 'child1')).rejects.toThrow(
+      "Cannot move a project into one of its own sub-projects",
+    );
+    expect(mockFrom).toHaveBeenCalledTimes(1);
+  });
+
+  it('updates parent_id when moving under a different, non-descendant parent', async () => {
+    const otherRoot: Project = { ...sampleProject, id: 'root2', parent_id: null };
+    const listBuilder = makeQueryBuilder({ data: [root1, otherRoot, child1], error: null });
+    const updateBuilder = makeQueryBuilder({
+      data: { ...child1, parent_id: 'root2' },
+      error: null,
+    });
+    mockFrom.mockReturnValueOnce(listBuilder).mockReturnValueOnce(updateBuilder);
+
+    const result = await moveProject('child1', 'root2');
+
+    expect(updateBuilder.update).toHaveBeenCalledWith({ parent_id: 'root2' });
+    expect(updateBuilder.eq).toHaveBeenCalledWith('id', 'child1');
+    expect(result.parent_id).toBe('root2');
+  });
+
+  it('moves to top-level without walking the tree', async () => {
+    const updateBuilder = makeQueryBuilder({ data: { ...child1, parent_id: null }, error: null });
+    mockFrom.mockReturnValueOnce(updateBuilder);
+
+    const result = await moveProject('child1', null);
+
+    expect(mockFrom).toHaveBeenCalledTimes(1);
+    expect(result.parent_id).toBeNull();
+  });
+});
+
 describe('deleteProject', () => {
-  it('deletes by id', async () => {
+  it('deletes by id when there are no sub-projects', async () => {
     const builder = makeQueryBuilder({ data: null, error: null });
     mockFrom.mockReturnValue(builder);
 
@@ -119,5 +178,14 @@ describe('deleteProject', () => {
 
     expect(builder.delete).toHaveBeenCalled();
     expect(builder.eq).toHaveBeenCalledWith('id', 'p1');
+  });
+
+  it('throws and skips the delete when the project has sub-projects', async () => {
+    const childCheckBuilder = makeQueryBuilder({ data: [{ id: 'child1' }], error: null });
+    mockFrom.mockReturnValueOnce(childCheckBuilder);
+
+    await expect(deleteProject('p1')).rejects.toThrow('sub-projects first');
+    expect(childCheckBuilder.delete).not.toHaveBeenCalled();
+    expect(mockFrom).toHaveBeenCalledTimes(1);
   });
 });

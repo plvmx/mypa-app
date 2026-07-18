@@ -1,16 +1,24 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getProjectById, deleteProject } from '@/lib/services/projectService';
+import {
+  getProjectById,
+  getProjects,
+  createProject,
+  deleteProject,
+  moveProject,
+} from '@/lib/services/projectService';
 import { getNotes } from '@/lib/services/noteService';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { getAncestors, getDescendantIds } from '@/lib/projectTree';
 import NoteComposer from '@/components/NoteComposer';
 import NoteCard from '@/components/NoteCard';
+import ProjectPicker from '@/components/ProjectPicker';
 import type { Project, Note } from '@/lib/types';
 
-/** Project detail: header, the project's notes, and a capture box. */
+/** Project detail: breadcrumb, sub-projects, notes, and a capture box. */
 export default function ProjectDetailPage({
   params,
 }: {
@@ -20,17 +28,26 @@ export default function ProjectDetailPage({
   const router = useRouter();
 
   const [project, setProject] = useState<Project | null>(null);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [subTitle, setSubTitle] = useState('');
+  const [creatingSub, setCreatingSub] = useState(false);
+  const [subError, setSubError] = useState('');
+  const [showSubForm, setShowSubForm] = useState(false);
+
+  const [showMovePicker, setShowMovePicker] = useState(false);
+
   useEffect(() => {
     let active = true;
-    Promise.all([getProjectById(id), getNotes({ projectId: id })])
-      .then(([proj, projNotes]) => {
+    Promise.all([getProjectById(id), getNotes({ projectId: id }), getProjects({ status: 'all' })])
+      .then(([proj, projNotes, allProj]) => {
         if (!active) return;
         setProject(proj);
         setNotes(projNotes);
+        setAllProjects(allProj);
       })
       .catch((err) => {
         if (active) setError(getErrorMessage(err));
@@ -53,6 +70,34 @@ export default function ProjectDetailPage({
     }
   }
 
+  async function handleCreateSub(e: FormEvent) {
+    e.preventDefault();
+    if (!subTitle.trim() || creatingSub) return;
+    setCreatingSub(true);
+    setSubError('');
+    try {
+      const sub = await createProject({ title: subTitle, parent_id: id });
+      setAllProjects((prev) => [sub, ...prev]);
+      setSubTitle('');
+      setShowSubForm(false);
+    } catch (err) {
+      setSubError(getErrorMessage(err));
+    } finally {
+      setCreatingSub(false);
+    }
+  }
+
+  async function handleMove(newParentId: string | null) {
+    setShowMovePicker(false);
+    try {
+      const updated = await moveProject(id, newParentId);
+      setProject(updated);
+      setAllProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  }
+
   if (loading) return <p className="text-sm text-muted">Loading…</p>;
   if (error) return <p className="text-sm text-red-500">{error}</p>;
   if (!project) {
@@ -66,11 +111,21 @@ export default function ProjectDetailPage({
     );
   }
 
+  const ancestors = getAncestors(allProjects, id);
+  const children = allProjects.filter((p) => p.parent_id === id);
+  const excludedIds = getDescendantIds(allProjects, id).add(id);
+
   return (
     <div>
-      <Link href="/app" className="text-sm text-muted">
-        ‹ Projects
-      </Link>
+      <div className="flex flex-wrap items-center gap-1 text-sm text-muted">
+        <Link href="/app">Projects</Link>
+        {ancestors.map((ancestor) => (
+          <span key={ancestor.id} className="flex items-center gap-1">
+            <span aria-hidden>›</span>
+            <Link href={`/app/projects/${ancestor.id}`}>{ancestor.title}</Link>
+          </span>
+        ))}
+      </div>
 
       <div className="mb-4 mt-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -86,13 +141,84 @@ export default function ProjectDetailPage({
             <p className="mt-1 text-sm text-muted">{project.description}</p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={handleDeleteProject}
-          className="shrink-0 text-sm text-muted hover:text-red-500"
-        >
-          Delete
-        </button>
+        <div className="flex shrink-0 gap-3">
+          <button
+            type="button"
+            onClick={() => setShowMovePicker(true)}
+            className="text-sm text-muted hover:text-accent"
+          >
+            Move
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteProject}
+            className="text-sm text-muted hover:text-red-500"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-muted">Sub-projects</h2>
+          <button
+            type="button"
+            onClick={() => setShowSubForm((v) => !v)}
+            className="text-sm text-accent"
+          >
+            {showSubForm ? 'Cancel' : 'New sub-project'}
+          </button>
+        </div>
+
+        {showSubForm && (
+          <form onSubmit={handleCreateSub} className="mb-3 rounded-2xl border border-border bg-card p-3">
+            <input
+              autoFocus
+              value={subTitle}
+              onChange={(e) => setSubTitle(e.target.value)}
+              placeholder="Sub-project name"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base outline-none focus:border-accent"
+            />
+            {subError && (
+              <p className="mt-2 text-sm text-red-500" role="alert">
+                {subError}
+              </p>
+            )}
+            <div className="mt-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={creatingSub || !subTitle.trim()}
+                className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {creatingSub ? 'Creating…' : 'Create'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {children.length > 0 && (
+          <ul className="flex flex-col gap-2">
+            {children.map((child) => (
+              <li key={child.id}>
+                <Link
+                  href={`/app/projects/${child.id}`}
+                  className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 active:bg-border/40"
+                >
+                  <span
+                    aria-hidden
+                    className="h-3 w-3 shrink-0 rounded-full"
+                    style={{ background: child.color ?? 'var(--color-accent)' }}
+                  />
+                  <span className="min-w-0 flex-1 truncate font-medium">{child.title}</span>
+                  <span aria-hidden className="text-muted">
+                    ›
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="mb-4">
@@ -117,6 +243,15 @@ export default function ProjectDetailPage({
             </li>
           ))}
         </ul>
+      )}
+
+      {showMovePicker && (
+        <ProjectPicker
+          projects={allProjects}
+          excludedIds={excludedIds}
+          onSelect={handleMove}
+          onClose={() => setShowMovePicker(false)}
+        />
       )}
     </div>
   );

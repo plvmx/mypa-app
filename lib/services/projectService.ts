@@ -16,6 +16,8 @@ export interface CreateProjectInput {
   title: string;
   description?: string | null;
   color?: string | null;
+  /** Parent project, for a sub-project. Omit / null for a top-level project. */
+  parent_id?: string | null;
 }
 
 /** Fields a caller may change when updating a project. All optional. */
@@ -64,6 +66,7 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
         title,
         description: input.description?.trim() || null,
         color: input.color ?? null,
+        parent_id: input.parent_id ?? null,
       },
     ])
     .select()
@@ -97,8 +100,49 @@ export async function updateProject(
   return data as Project;
 }
 
+/**
+ * Move a project under a new parent (or to top-level, if `newParentId` is
+ * null). Rejects self-parenting and rejects moving a project into one of its
+ * own descendants, which would create a cycle. This is the only way
+ * `parent_id` should change — `updateProject` deliberately doesn't accept it.
+ */
+export async function moveProject(id: string, newParentId: string | null): Promise<Project> {
+  if (newParentId === id) throw new Error('A project cannot be its own parent');
+
+  if (newParentId !== null) {
+    const projects = await getProjects({ status: 'all' });
+    const parentById = new Map(projects.map((p) => [p.id, p.parent_id]));
+    let cursor: string | null = newParentId;
+    while (cursor !== null) {
+      if (cursor === id) {
+        throw new Error('Cannot move a project into one of its own sub-projects');
+      }
+      cursor = parentById.get(cursor) ?? null;
+    }
+  }
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ parent_id: newParentId })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Project;
+}
+
 /** Permanently delete a project. Its notes are detached (project_id set null) by the DB. */
 export async function deleteProject(id: string): Promise<void> {
+  const { data: children, error: childError } = await supabase
+    .from(TABLE)
+    .select('id')
+    .eq('parent_id', id)
+    .limit(1);
+  if (childError) throw childError;
+  if (children && children.length > 0) {
+    throw new Error('Move or delete its sub-projects first');
+  }
+
   const { error } = await supabase.from(TABLE).delete().eq('id', id);
   if (error) throw error;
 }
