@@ -20,6 +20,8 @@ export interface Project {
   /** A hex colour (e.g. "#3b82f6") used to tint the project in the UI. */
   color: string | null;
   status: ProjectStatus;
+  /** Parent project, or null for a top-level project. */
+  parent_id: string | null;
   created_at: string;
   updated_at: string;
 }

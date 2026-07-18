@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState, type FormEvent } from 'react';
-import Link from 'next/link';
 import { getProjects, createProject } from '@/lib/services/projectService';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { buildProjectTree } from '@/lib/projectTree';
+import ProjectTree from '@/components/ProjectTree';
 import type { Project } from '@/lib/types';
 
 /** Home screen: your list of projects / interests, with quick creation. */
@@ -102,33 +103,7 @@ export default function ProjectsPage() {
           </p>
         </div>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {projects.map((project) => (
-            <li key={project.id}>
-              <Link
-                href={`/app/projects/${project.id}`}
-                className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 active:bg-border/40"
-              >
-                <span
-                  aria-hidden
-                  className="h-3 w-3 shrink-0 rounded-full"
-                  style={{ background: project.color ?? 'var(--color-accent)' }}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{project.title}</span>
-                  {project.description && (
-                    <span className="block truncate text-sm text-muted">
-                      {project.description}
-                    </span>
-                  )}
-                </span>
-                <span aria-hidden className="text-muted">
-                  ›
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <ProjectTree nodes={buildProjectTree(projects)} />
       )}
     </div>
   );
