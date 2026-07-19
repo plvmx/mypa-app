@@ -40,10 +40,33 @@ export interface Note {
   updated_at: string;
 }
 
+/**
+ * A Record — a structured info object attached to a Project (unlike Notes,
+ * always project-scoped; there is no "inbox" record). References and Points
+ * are ordered lists of free text; Images holds Supabase Storage object paths
+ * (in the `pa-rec-images` bucket), not URLs — resolve to a signed URL for
+ * display via `paRecService.getPaRecImageUrl`.
+ */
+export interface PaRec {
+  id: string;
+  user_id: string;
+  project_id: string;
+  event: string | null;
+  site: string | null;
+  title: string;
+  references: string[];
+  points: string[];
+  key_learnings: string | null;
+  images: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 /** The full row data captured inside a Snapshot. */
 export interface SnapshotData {
   projects: Project[];
   notes: Note[];
+  pa_recs: PaRec[];
 }
 
 /**
