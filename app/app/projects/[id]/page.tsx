@@ -11,6 +11,7 @@ import {
   moveProject,
 } from '@/lib/services/projectService';
 import { getNotes } from '@/lib/services/noteService';
+import { getPaRecs } from '@/lib/services/paRecService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { getAncestors, getDescendantIds } from '@/lib/projectTree';
 import NoteComposer from '@/components/NoteComposer';
@@ -30,6 +31,7 @@ export default function ProjectDetailPage({
   const [project, setProject] = useState<Project | null>(null);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [recordCount, setRecordCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -42,12 +44,18 @@ export default function ProjectDetailPage({
 
   useEffect(() => {
     let active = true;
-    Promise.all([getProjectById(id), getNotes({ projectId: id }), getProjects({ status: 'all' })])
-      .then(([proj, projNotes, allProj]) => {
+    Promise.all([
+      getProjectById(id),
+      getNotes({ projectId: id }),
+      getProjects({ status: 'all' }),
+      getPaRecs(id),
+    ])
+      .then(([proj, projNotes, allProj, records]) => {
         if (!active) return;
         setProject(proj);
         setNotes(projNotes);
         setAllProjects(allProj);
+        setRecordCount(records.length);
       })
       .catch((err) => {
         if (active) setError(getErrorMessage(err));
@@ -219,6 +227,15 @@ export default function ProjectDetailPage({
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="mb-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-muted">Records</h2>
+          <Link href={`/app/projects/${id}/records`} className="text-sm text-accent">
+            {recordCount > 0 ? `View all (${recordCount})` : 'Add a record'}
+          </Link>
+        </div>
       </div>
 
       <div className="mb-4">

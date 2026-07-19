@@ -3,13 +3,14 @@ import { makeQueryBuilder } from './supabaseMock';
 import { supabase } from '@/lib/supabaseClient';
 import { getProjects } from '@/lib/services/projectService';
 import { getNotes } from '@/lib/services/noteService';
+import { getPaRecs } from '@/lib/services/paRecService';
 import {
   getSnapshots,
   createSnapshot,
   deleteSnapshot,
   restoreSnapshot,
 } from '@/lib/services/snapshotService';
-import type { Project, Note, Snapshot } from '@/lib/types';
+import type { Project, Note, PaRec, Snapshot } from '@/lib/types';
 
 vi.mock('@/lib/supabaseClient', () => ({
   supabase: { from: vi.fn(), rpc: vi.fn() },
@@ -23,10 +24,15 @@ vi.mock('@/lib/services/noteService', () => ({
   getNotes: vi.fn(),
 }));
 
+vi.mock('@/lib/services/paRecService', () => ({
+  getPaRecs: vi.fn(),
+}));
+
 const mockFrom = vi.mocked(supabase.from) as unknown as ReturnType<typeof vi.fn>;
 const mockRpc = vi.mocked(supabase.rpc) as unknown as ReturnType<typeof vi.fn>;
 const mockGetProjects = vi.mocked(getProjects);
 const mockGetNotes = vi.mocked(getNotes);
+const mockGetPaRecs = vi.mocked(getPaRecs);
 
 const sampleProject: Project = {
   id: 'p1',
@@ -50,11 +56,26 @@ const sampleNote: Note = {
   updated_at: '2026-07-14T00:00:00Z',
 };
 
+const sampleRec: PaRec = {
+  id: 'r1',
+  user_id: 'u1',
+  project_id: 'p1',
+  event: null,
+  site: null,
+  title: 'Talk notes',
+  references: [],
+  points: [],
+  key_learnings: null,
+  images: [],
+  created_at: '2026-07-14T00:00:00Z',
+  updated_at: '2026-07-14T00:00:00Z',
+};
+
 const sampleSnapshot: Snapshot = {
   id: 's1',
   user_id: 'u1',
   label: 'Before cleanup',
-  data: { projects: [sampleProject], notes: [sampleNote] },
+  data: { projects: [sampleProject], notes: [sampleNote], pa_recs: [sampleRec] },
   created_at: '2026-07-17T00:00:00Z',
 };
 
@@ -76,9 +97,10 @@ describe('getSnapshots', () => {
 });
 
 describe('createSnapshot', () => {
-  it('captures all projects and notes into the insert payload', async () => {
+  it('captures all projects, notes, and records into the insert payload', async () => {
     mockGetProjects.mockResolvedValue([sampleProject]);
     mockGetNotes.mockResolvedValue([sampleNote]);
+    mockGetPaRecs.mockResolvedValue([sampleRec]);
     const builder = makeQueryBuilder({ data: sampleSnapshot, error: null });
     mockFrom.mockReturnValue(builder);
 
@@ -86,21 +108,26 @@ describe('createSnapshot', () => {
 
     expect(mockGetProjects).toHaveBeenCalledWith({ status: 'all' });
     expect(mockGetNotes).toHaveBeenCalledWith();
+    expect(mockGetPaRecs).toHaveBeenCalledWith();
     expect(builder.insert).toHaveBeenCalledWith([
-      { label: 'Before cleanup', data: { projects: [sampleProject], notes: [sampleNote] } },
+      {
+        label: 'Before cleanup',
+        data: { projects: [sampleProject], notes: [sampleNote], pa_recs: [sampleRec] },
+      },
     ]);
   });
 
   it('stores a null label when none is given', async () => {
     mockGetProjects.mockResolvedValue([]);
     mockGetNotes.mockResolvedValue([]);
+    mockGetPaRecs.mockResolvedValue([]);
     const builder = makeQueryBuilder({ data: sampleSnapshot, error: null });
     mockFrom.mockReturnValue(builder);
 
     await createSnapshot();
 
     expect(builder.insert).toHaveBeenCalledWith([
-      { label: null, data: { projects: [], notes: [] } },
+      { label: null, data: { projects: [], notes: [], pa_recs: [] } },
     ]);
   });
 });

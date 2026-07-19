@@ -1,13 +1,15 @@
 import { supabase } from '@/lib/supabaseClient';
 import { getProjects } from '@/lib/services/projectService';
 import { getNotes } from '@/lib/services/noteService';
+import { getPaRecs } from '@/lib/services/paRecService';
 import type { Snapshot } from '@/lib/types';
 
 /**
- * Manual database snapshots: capture the current projects + notes as a single
- * row, and restore back to one later. Restore is atomic (delete + repopulate
- * in one transaction) via the `restore_snapshot` Postgres function — the JS
- * client cannot express that as a single call, so it is delegated to the DB.
+ * Manual database snapshots: capture the current projects + notes + records
+ * as a single row, and restore back to one later. Restore is atomic (delete +
+ * repopulate in one transaction) via the `restore_snapshot` Postgres function
+ * — the JS client cannot express that as a single call, so it is delegated
+ * to the DB.
  */
 
 const TABLE = 'snapshots';
@@ -22,16 +24,17 @@ export async function getSnapshots(): Promise<Snapshot[]> {
   return (data || []) as Snapshot[];
 }
 
-/** Capture the current projects + notes (all statuses) into a new snapshot. */
+/** Capture the current projects + notes + records (all statuses) into a new snapshot. */
 export async function createSnapshot(label?: string): Promise<Snapshot> {
-  const [projects, notes] = await Promise.all([
+  const [projects, notes, pa_recs] = await Promise.all([
     getProjects({ status: 'all' }),
     getNotes(),
+    getPaRecs(),
   ]);
 
   const { data, error } = await supabase
     .from(TABLE)
-    .insert([{ label: label?.trim() || null, data: { projects, notes } }])
+    .insert([{ label: label?.trim() || null, data: { projects, notes, pa_recs } }])
     .select()
     .single();
   if (error) throw error;
