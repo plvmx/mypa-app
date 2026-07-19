@@ -57,6 +57,9 @@ export default function NotesPage() {
               <NoteCard
                 note={note}
                 onDeleted={(id) => setNotes((prev) => prev.filter((n) => n.id !== id))}
+                onUpdated={(updated) =>
+                  setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
+                }
               />
             </li>
           ))}
