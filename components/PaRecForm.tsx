@@ -16,16 +16,21 @@ import type { PaRec } from '@/lib/types';
 export default function PaRecForm({
   projectId,
   initial,
+  defaultEvent,
+  defaultSite,
   onSaved,
   onCancel,
 }: {
   projectId: string;
   initial?: PaRec;
+  /** Prefill for a new record (ignored in edit mode) — e.g. the Event/Site of the last record created in this project. */
+  defaultEvent?: string | null;
+  defaultSite?: string | null;
   onSaved: (rec: PaRec) => void;
   onCancel?: () => void;
 }) {
-  const [event, setEvent] = useState(initial?.event ?? '');
-  const [site, setSite] = useState(initial?.site ?? '');
+  const [event, setEvent] = useState(initial?.event ?? defaultEvent ?? '');
+  const [site, setSite] = useState(initial?.site ?? defaultSite ?? '');
   const [title, setTitle] = useState(initial?.title ?? '');
   const [references, setReferences] = useState<string[]>(
     initial?.references.length ? initial.references : [''],
