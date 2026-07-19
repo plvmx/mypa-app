@@ -7,6 +7,7 @@ import {
   getProjectById,
   getProjects,
   createProject,
+  updateProject,
   deleteProject,
   moveProject,
 } from '@/lib/services/projectService';
@@ -14,12 +15,10 @@ import { getNotes } from '@/lib/services/noteService';
 import { getPaRecs } from '@/lib/services/paRecService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { getAncestors, getDescendantIds } from '@/lib/projectTree';
-import NoteComposer from '@/components/NoteComposer';
-import NoteCard from '@/components/NoteCard';
 import ProjectPicker from '@/components/ProjectPicker';
-import type { Project, Note } from '@/lib/types';
+import type { Project } from '@/lib/types';
 
-/** Project detail: breadcrumb, sub-projects, notes, and a capture box. */
+/** Project detail: breadcrumb, sub-projects, and links to records/notes. */
 export default function ProjectDetailPage({
   params,
 }: {
@@ -30,7 +29,7 @@ export default function ProjectDetailPage({
 
   const [project, setProject] = useState<Project | null>(null);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [noteCount, setNoteCount] = useState(0);
   const [recordCount, setRecordCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -41,6 +40,11 @@ export default function ProjectDetailPage({
   const [showSubForm, setShowSubForm] = useState(false);
 
   const [showMovePicker, setShowMovePicker] = useState(false);
+
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleValue, setTitleValue] = useState('');
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [titleError, setTitleError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -53,7 +57,7 @@ export default function ProjectDetailPage({
       .then(([proj, projNotes, allProj, records]) => {
         if (!active) return;
         setProject(proj);
-        setNotes(projNotes);
+        setNoteCount(projNotes.length);
         setAllProjects(allProj);
         setRecordCount(records.length);
       })
@@ -92,6 +96,29 @@ export default function ProjectDetailPage({
       setSubError(getErrorMessage(err));
     } finally {
       setCreatingSub(false);
+    }
+  }
+
+  function startEditingTitle() {
+    if (!project) return;
+    setTitleValue(project.title);
+    setTitleError('');
+    setEditingTitle(true);
+  }
+
+  async function handleSaveTitle() {
+    if (!titleValue.trim() || savingTitle) return;
+    setSavingTitle(true);
+    setTitleError('');
+    try {
+      const updated = await updateProject(id, { title: titleValue });
+      setProject(updated);
+      setAllProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
+      setEditingTitle(false);
+    } catch (err) {
+      setTitleError(getErrorMessage(err));
+    } finally {
+      setSavingTitle(false);
     }
   }
 
@@ -135,37 +162,78 @@ export default function ProjectDetailPage({
         ))}
       </div>
 
-      <div className="mb-4 mt-2 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
-            <span
-              aria-hidden
-              className="h-3 w-3 shrink-0 rounded-full"
-              style={{ background: project.color ?? 'var(--color-accent)' }}
-            />
-            <span className="truncate">{project.title}</span>
-          </h1>
-          {project.description && (
-            <p className="mt-1 text-sm text-muted">{project.description}</p>
+      {editingTitle ? (
+        <div className="mb-4 mt-2">
+          <input
+            autoFocus
+            value={titleValue}
+            onChange={(e) => setTitleValue(e.target.value)}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xl font-semibold tracking-tight outline-none focus:border-accent"
+          />
+          {titleError && (
+            <p className="mt-2 text-sm text-red-500" role="alert">
+              {titleError}
+            </p>
           )}
+          <div className="mt-2 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setEditingTitle(false)}
+              disabled={savingTitle}
+              className="text-sm text-muted hover:text-accent disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveTitle}
+              disabled={savingTitle || !titleValue.trim()}
+              className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {savingTitle ? 'Saving…' : 'Save'}
+            </button>
+          </div>
         </div>
-        <div className="flex shrink-0 gap-3">
-          <button
-            type="button"
-            onClick={() => setShowMovePicker(true)}
-            className="text-sm text-muted hover:text-accent"
-          >
-            Move
-          </button>
-          <button
-            type="button"
-            onClick={handleDeleteProject}
-            className="text-sm text-muted hover:text-red-500"
-          >
-            Delete
-          </button>
+      ) : (
+        <div className="mb-4 mt-2 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+              <span
+                aria-hidden
+                className="h-3 w-3 shrink-0 rounded-full"
+                style={{ background: project.color ?? 'var(--color-accent)' }}
+              />
+              <span className="truncate">{project.title}</span>
+            </h1>
+            {project.description && (
+              <p className="mt-1 text-sm text-muted">{project.description}</p>
+            )}
+          </div>
+          <div className="flex shrink-0 gap-3">
+            <button
+              type="button"
+              onClick={startEditingTitle}
+              className="text-sm text-muted hover:text-accent"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowMovePicker(true)}
+              className="text-sm text-muted hover:text-accent"
+            >
+              Move
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteProject}
+              className="text-sm text-muted hover:text-red-500"
+            >
+              Delete
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="mb-4">
         <div className="mb-2 flex items-center justify-between">
@@ -239,28 +307,13 @@ export default function ProjectDetailPage({
       </div>
 
       <div className="mb-4">
-        <NoteComposer
-          projectId={id}
-          onCreated={(note) => setNotes((prev) => [note, ...prev])}
-        />
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-muted">Notes</h2>
+          <Link href={`/app/projects/${id}/notes`} className="text-sm text-accent">
+            {noteCount > 0 ? `View all (${noteCount})` : 'Add a note'}
+          </Link>
+        </div>
       </div>
-
-      {notes.length === 0 ? (
-        <p className="text-sm text-muted">No notes yet — capture your first thought above.</p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {notes.map((note) => (
-            <li key={note.id}>
-              <NoteCard
-                note={note}
-                onDeleted={(deletedId) =>
-                  setNotes((prev) => prev.filter((n) => n.id !== deletedId))
-                }
-              />
-            </li>
-          ))}
-        </ul>
-      )}
 
       {showMovePicker && (
         <ProjectPicker
