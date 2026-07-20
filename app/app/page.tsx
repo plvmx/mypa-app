@@ -5,6 +5,7 @@ import { getProjects, createProject } from '@/lib/services/projectService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { buildProjectTree } from '@/lib/projectTree';
 import ProjectTree from '@/components/ProjectTree';
+import ColorPicker from '@/components/ColorPicker';
 import type { Project } from '@/lib/types';
 
 /** Home screen: your list of projects / interests, with quick creation. */
@@ -14,6 +15,7 @@ export default function ProjectsPage() {
   const [loadError, setLoadError] = useState('');
 
   const [title, setTitle] = useState('');
+  const [color, setColor] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -41,9 +43,10 @@ export default function ProjectsPage() {
     setCreating(true);
     setCreateError('');
     try {
-      const project = await createProject({ title });
+      const project = await createProject({ title, color });
       setProjects((prev) => [project, ...prev]);
       setTitle('');
+      setColor(null);
       setShowForm(false);
     } catch (err) {
       setCreateError(getErrorMessage(err));
@@ -74,6 +77,9 @@ export default function ProjectsPage() {
             placeholder="Project or interest name"
             className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base outline-none focus:border-accent"
           />
+          <div className="mt-3">
+            <ColorPicker value={color} onChange={setColor} />
+          </div>
           {createError && (
             <p className="mt-2 text-sm text-red-500" role="alert">
               {createError}
@@ -103,7 +109,7 @@ export default function ProjectsPage() {
           </p>
         </div>
       ) : (
-        <ProjectTree nodes={buildProjectTree(projects)} />
+        <ProjectTree nodes={buildProjectTree(projects)} projects={projects} />
       )}
     </div>
   );

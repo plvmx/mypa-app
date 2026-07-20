@@ -15,8 +15,9 @@ import { getNotes } from '@/lib/services/noteService';
 import { getPaRecs } from '@/lib/services/paRecService';
 import { getPaTasks } from '@/lib/services/paTaskService';
 import { getErrorMessage } from '@/lib/errorUtils';
-import { getAncestors, getDescendantIds } from '@/lib/projectTree';
+import { getAncestors, getDescendantIds, resolveProjectColor } from '@/lib/projectTree';
 import ProjectPicker from '@/components/ProjectPicker';
+import ColorPicker from '@/components/ColorPicker';
 import NoteCard from '@/components/NoteCard';
 import PaRecCard from '@/components/PaRecCard';
 import PaTaskCard from '@/components/PaTaskCard';
@@ -140,6 +141,16 @@ export default function ProjectDetailPage({
     }
   }
 
+  async function handleChangeColor(newColor: string) {
+    try {
+      const updated = await updateProject(id, { color: newColor });
+      setProject(updated);
+      setAllProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  }
+
   if (loading) return <p className="text-sm text-muted">Loading…</p>;
   if (error) return <p className="text-sm text-red-500">{error}</p>;
   if (!project) {
@@ -208,7 +219,7 @@ export default function ProjectDetailPage({
               <span
                 aria-hidden
                 className="h-3 w-3 shrink-0 rounded-full"
-                style={{ background: project.color ?? 'var(--color-accent)' }}
+                style={{ background: resolveProjectColor(project, allProjects) }}
               />
               <span className="truncate">{project.title}</span>
             </h1>
@@ -239,6 +250,13 @@ export default function ProjectDetailPage({
               Delete
             </button>
           </div>
+        </div>
+      )}
+
+      {project.parent_id === null && (
+        <div className="mb-4">
+          <h2 className="mb-2 text-sm font-semibold text-muted">Color</h2>
+          <ColorPicker value={project.color} onChange={handleChangeColor} />
         </div>
       )}
 
@@ -291,7 +309,7 @@ export default function ProjectDetailPage({
                   <span
                     aria-hidden
                     className="h-3 w-3 shrink-0 rounded-full"
-                    style={{ background: child.color ?? 'var(--color-accent)' }}
+                    style={{ background: resolveProjectColor(child, allProjects) }}
                   />
                   <span className="min-w-0 flex-1 truncate font-medium">{child.title}</span>
                   <span aria-hidden className="text-muted">
