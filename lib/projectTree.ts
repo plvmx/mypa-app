@@ -1,3 +1,4 @@
+import { DEFAULT_PROJECT_COLOR, getIntensifiedColor } from '@/lib/colors';
 import type { Project } from '@/lib/types';
 
 /** A project plus its nested children, for tree rendering. */
@@ -36,6 +37,17 @@ export function getAncestors(projects: Project[], id: string): Project[] {
     cursor = project.parent_id;
   }
   return chain;
+}
+
+/**
+ * The color to display for a project: only top-level projects store a color,
+ * so a sub-project's display color is derived from its top-level ancestor's
+ * color, intensified per level of nesting (see `getIntensifiedColor`).
+ */
+export function resolveProjectColor(project: Project, allProjects: Project[]): string {
+  const ancestors = getAncestors(allProjects, project.id);
+  const root = ancestors[0] ?? project;
+  return getIntensifiedColor(root.color ?? DEFAULT_PROJECT_COLOR, ancestors.length);
 }
 
 /** All descendant ids of `id` (children, grandchildren, ...). Excludes `id` itself. */

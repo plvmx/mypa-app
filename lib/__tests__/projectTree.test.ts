@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildProjectTree, getAncestors, getDescendantIds } from '@/lib/projectTree';
+import { buildProjectTree, getAncestors, getDescendantIds, resolveProjectColor } from '@/lib/projectTree';
+import { DEFAULT_PROJECT_COLOR, getIntensifiedColor } from '@/lib/colors';
 import type { Project } from '@/lib/types';
 
 function makeProject(overrides: Partial<Project> & { id: string }): Project {
@@ -59,6 +60,31 @@ describe('getAncestors', () => {
 
   it('returns an empty array for an unknown id', () => {
     expect(getAncestors(projects, 'missing')).toEqual([]);
+  });
+});
+
+describe('resolveProjectColor', () => {
+  const coloredRoot = makeProject({ id: 'coloredRoot', color: '#cfe3fb' });
+  const coloredChild = makeProject({ id: 'coloredChild', parent_id: 'coloredRoot' });
+  const coloredGrandchild = makeProject({ id: 'coloredGrandchild', parent_id: 'coloredChild' });
+  const uncoloredRoot = makeProject({ id: 'uncoloredRoot' });
+  const coloredProjects = [coloredRoot, coloredChild, coloredGrandchild, uncoloredRoot];
+
+  it("returns a top-level project's own color unchanged", () => {
+    expect(resolveProjectColor(coloredRoot, coloredProjects)).toBe('#cfe3fb');
+  });
+
+  it("intensifies a sub-project's color from its top-level ancestor, per level of depth", () => {
+    expect(resolveProjectColor(coloredChild, coloredProjects)).toBe(
+      getIntensifiedColor('#cfe3fb', 1),
+    );
+    expect(resolveProjectColor(coloredGrandchild, coloredProjects)).toBe(
+      getIntensifiedColor('#cfe3fb', 2),
+    );
+  });
+
+  it('falls back to the default color for a top-level project with no color set', () => {
+    expect(resolveProjectColor(uncoloredRoot, coloredProjects)).toBe(DEFAULT_PROJECT_COLOR);
   });
 });
 
