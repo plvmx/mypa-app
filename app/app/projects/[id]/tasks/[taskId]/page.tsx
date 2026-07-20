@@ -42,7 +42,7 @@ export default function EditPaTaskPage({
     if (!confirm('Delete this task? This cannot be undone.')) return;
     try {
       await deletePaTask(taskId);
-      router.push(`/app/projects/${id}/tasks`);
+      router.push(`/app/projects/${id}`);
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -55,10 +55,10 @@ export default function EditPaTaskPage({
       <div>
         <p className="text-sm text-muted">Task not found.</p>
         <Link
-          href={`/app/projects/${id}/tasks`}
+          href={`/app/projects/${id}`}
           className="mt-2 inline-block text-sm text-accent underline"
         >
-          Back to tasks
+          Back to project
         </Link>
       </div>
     );
@@ -80,7 +80,7 @@ export default function EditPaTaskPage({
         projectId={id}
         initial={task}
         onSaved={(t) => setTask(t)}
-        onCancel={() => router.push(`/app/projects/${id}/tasks`)}
+        onCancel={() => router.push(`/app/projects/${id}`)}
       />
     </div>
   );
