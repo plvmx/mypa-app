@@ -7,6 +7,8 @@ import {
   createPaTask,
   updatePaTask,
   deletePaTask,
+  startTimer,
+  stopTimer,
 } from '@/lib/services/paTaskService';
 import type { PaTask } from '@/lib/types';
 
@@ -31,6 +33,9 @@ const sampleTask: PaTask = {
   started_at: '2026-06-30T00:00:00Z',
   completed: false,
   completed_at: null,
+  due_at: null,
+  remind_at: null,
+  time_entries: [],
   created_at: '2026-06-29T00:00:00Z',
   updated_at: '2026-06-30T00:00:00Z',
 };
@@ -92,8 +97,26 @@ describe('createPaTask', () => {
         started_at: null,
         completed: false,
         completed_at: null,
+        due_at: null,
+        remind_at: null,
       },
     ]);
+  });
+
+  it('passes due_at and remind_at through when provided', async () => {
+    const builder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await createPaTask({
+      project_id: 'p1',
+      title: 'Renew passport',
+      due_at: '2026-08-01T00:00:00Z',
+      remind_at: '2026-07-25T00:00:00Z',
+    });
+
+    const inserted = builder.insert.mock.calls[0][0][0];
+    expect(inserted.due_at).toBe('2026-08-01T00:00:00Z');
+    expect(inserted.remind_at).toBe('2026-07-25T00:00:00Z');
   });
 
   it('stamps started_at/completed_at with now when created already started/completed', async () => {
@@ -187,6 +210,72 @@ describe('updatePaTask', () => {
   it('rejects clearing the title to blank', async () => {
     await expect(updatePaTask('t1', { title: '  ' })).rejects.toThrow('needs a title');
     expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('patches due_at and remind_at, including clearing them back to null', async () => {
+    const builder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await updatePaTask('t1', { due_at: '2026-08-01T00:00:00Z', remind_at: null });
+
+    expect(builder.update).toHaveBeenCalledWith({
+      due_at: '2026-08-01T00:00:00Z',
+      remind_at: null,
+    });
+  });
+});
+
+describe('startTimer', () => {
+  it('appends an open time entry stamped with now', async () => {
+    const getBuilder = makeQueryBuilder({ data: sampleTask, error: null });
+    const updateBuilder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValueOnce(getBuilder).mockReturnValueOnce(updateBuilder);
+
+    await startTimer('t1');
+
+    const patch = updateBuilder.update.mock.calls[0][0];
+    expect(patch.time_entries).toHaveLength(1);
+    expect(patch.time_entries[0].ended_at).toBeNull();
+    expect(typeof patch.time_entries[0].started_at).toBe('string');
+  });
+
+  it('rejects starting a timer that is already running', async () => {
+    const running = { ...sampleTask, time_entries: [{ started_at: '2026-07-01T00:00:00Z', ended_at: null }] };
+    mockFrom.mockReturnValue(makeQueryBuilder({ data: running, error: null }));
+
+    await expect(startTimer('t1')).rejects.toThrow('already running');
+  });
+
+  it('rejects starting a timer on a task that does not exist', async () => {
+    mockFrom.mockReturnValue(makeQueryBuilder({ data: null, error: null }));
+    await expect(startTimer('missing')).rejects.toThrow('Task not found');
+  });
+});
+
+describe('stopTimer', () => {
+  it('sets ended_at on the open entry, preserving closed ones', async () => {
+    const running = {
+      ...sampleTask,
+      time_entries: [
+        { started_at: '2026-07-01T00:00:00Z', ended_at: '2026-07-01T01:00:00Z' },
+        { started_at: '2026-07-02T00:00:00Z', ended_at: null },
+      ],
+    };
+    const getBuilder = makeQueryBuilder({ data: running, error: null });
+    const updateBuilder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValueOnce(getBuilder).mockReturnValueOnce(updateBuilder);
+
+    await stopTimer('t1');
+
+    const patch = updateBuilder.update.mock.calls[0][0];
+    expect(patch.time_entries[0]).toEqual(running.time_entries[0]);
+    expect(patch.time_entries[1].ended_at).not.toBeNull();
+    expect(typeof patch.time_entries[1].ended_at).toBe('string');
+  });
+
+  it('rejects stopping when no timer is running', async () => {
+    mockFrom.mockReturnValue(makeQueryBuilder({ data: sampleTask, error: null }));
+    await expect(stopTimer('t1')).rejects.toThrow('No timer is running');
   });
 });
 

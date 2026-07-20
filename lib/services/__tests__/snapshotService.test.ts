@@ -87,6 +87,9 @@ const sampleTask: PaTask = {
   started_at: null,
   completed: false,
   completed_at: null,
+  due_at: null,
+  remind_at: null,
+  time_entries: [],
   created_at: '2026-07-14T00:00:00Z',
   updated_at: '2026-07-14T00:00:00Z',
 };

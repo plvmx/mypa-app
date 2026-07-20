@@ -164,6 +164,13 @@ export default function ProjectDetailPage({
     );
   }
 
+  const sortedTasks = [...tasks].sort((a, b) => {
+    if (!a.due_at && !b.due_at) return 0;
+    if (!a.due_at) return 1;
+    if (!b.due_at) return -1;
+    return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
+  });
+
   const ancestors = getAncestors(allProjects, id);
   const children = allProjects.filter((p) => p.parent_id === id);
   const excludedIds = getDescendantIds(allProjects, id).add(id);
@@ -340,12 +347,15 @@ export default function ProjectDetailPage({
           </div>
         ) : (
           <ul className="flex flex-col gap-2">
-            {tasks.map((task) => (
+            {sortedTasks.map((task) => (
               <li key={task.id}>
                 <PaTaskCard
                   task={task}
                   onDeleted={(deletedId) =>
                     setTasks((prev) => prev.filter((t) => t.id !== deletedId))
+                  }
+                  onUpdated={(updated) =>
+                    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
                   }
                 />
               </li>

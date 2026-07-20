@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient';
-import type { PaTask, TaskStep } from '@/lib/types';
+import type { PaTask, TaskStep, TimeEntry } from '@/lib/types';
 
 /**
  * CRUD for the `pa_tasks` table ("Tasks"). All database access for tasks
@@ -23,6 +23,8 @@ export interface CreatePaTaskInput {
   steps?: TaskStep[];
   started?: boolean;
   completed?: boolean;
+  due_at?: string | null;
+  remind_at?: string | null;
 }
 
 /** Fields a caller may change when updating a task. All optional. */
@@ -31,6 +33,8 @@ export interface UpdatePaTaskInput {
   steps?: TaskStep[];
   started?: boolean;
   completed?: boolean;
+  due_at?: string | null;
+  remind_at?: string | null;
 }
 
 /** Trim step text and drop steps left blank, preserving order and completion state. */
@@ -86,6 +90,8 @@ export async function createPaTask(input: CreatePaTaskInput): Promise<PaTask> {
         started_at: started ? now : null,
         completed,
         completed_at: completed ? now : null,
+        due_at: input.due_at ?? null,
+        remind_at: input.remind_at ?? null,
       },
     ])
     .select()
@@ -103,6 +109,8 @@ export async function updatePaTask(id: string, input: UpdatePaTaskInput): Promis
     patch.title = title;
   }
   if (input.steps !== undefined) patch.steps = cleanSteps(input.steps);
+  if (input.due_at !== undefined) patch.due_at = input.due_at;
+  if (input.remind_at !== undefined) patch.remind_at = input.remind_at;
 
   if (input.started !== undefined || input.completed !== undefined) {
     const current = await getPaTaskById(id);
@@ -122,6 +130,52 @@ export async function updatePaTask(id: string, input: UpdatePaTaskInput): Promis
   const { data, error } = await supabase
     .from(TABLE)
     .update(patch)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as PaTask;
+}
+
+/**
+ * Start a new time-tracking session on a task. Throws if a session is
+ * already running — stop it first.
+ */
+export async function startTimer(id: string): Promise<PaTask> {
+  const current = await getPaTaskById(id);
+  if (!current) throw new Error('Task not found');
+  if (current.time_entries.some((entry) => entry.ended_at === null)) {
+    throw new Error('A timer is already running for this task');
+  }
+
+  const entries: TimeEntry[] = [
+    ...current.time_entries,
+    { started_at: new Date().toISOString(), ended_at: null },
+  ];
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ time_entries: entries })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as PaTask;
+}
+
+/** Stop the currently-running time-tracking session on a task. */
+export async function stopTimer(id: string): Promise<PaTask> {
+  const current = await getPaTaskById(id);
+  if (!current) throw new Error('Task not found');
+  const openIndex = current.time_entries.findIndex((entry) => entry.ended_at === null);
+  if (openIndex === -1) throw new Error('No timer is running for this task');
+
+  const now = new Date().toISOString();
+  const entries = current.time_entries.map((entry, i) =>
+    i === openIndex ? { ...entry, ended_at: now } : entry,
+  );
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ time_entries: entries })
     .eq('id', id)
     .select()
     .single();
