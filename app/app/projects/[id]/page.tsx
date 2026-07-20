@@ -13,6 +13,7 @@ import {
 } from '@/lib/services/projectService';
 import { getNotes } from '@/lib/services/noteService';
 import { getPaRecs } from '@/lib/services/paRecService';
+import { getPaTasks } from '@/lib/services/paTaskService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { getAncestors, getDescendantIds } from '@/lib/projectTree';
 import ProjectPicker from '@/components/ProjectPicker';
@@ -31,6 +32,7 @@ export default function ProjectDetailPage({
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [noteCount, setNoteCount] = useState(0);
   const [recordCount, setRecordCount] = useState(0);
+  const [taskCount, setTaskCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -53,13 +55,15 @@ export default function ProjectDetailPage({
       getNotes({ projectId: id }),
       getProjects({ status: 'all' }),
       getPaRecs(id),
+      getPaTasks(id),
     ])
-      .then(([proj, projNotes, allProj, records]) => {
+      .then(([proj, projNotes, allProj, records, tasks]) => {
         if (!active) return;
         setProject(proj);
         setNoteCount(projNotes.length);
         setAllProjects(allProj);
         setRecordCount(records.length);
+        setTaskCount(tasks.length);
       })
       .catch((err) => {
         if (active) setError(getErrorMessage(err));
@@ -302,6 +306,15 @@ export default function ProjectDetailPage({
           <h2 className="text-sm font-semibold text-muted">Records</h2>
           <Link href={`/app/projects/${id}/records`} className="text-sm text-accent">
             {recordCount > 0 ? `View all (${recordCount})` : 'Add a record'}
+          </Link>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-muted">Tasks</h2>
+          <Link href={`/app/projects/${id}/tasks`} className="text-sm text-accent">
+            {taskCount > 0 ? `View all (${taskCount})` : 'Add a task'}
           </Link>
         </div>
       </div>
