@@ -63,7 +63,7 @@ export default function AdminPage() {
     });
     const ok = confirm(
       `Restore to "${snapshot.label || 'Untitled'}" (${when})?\n\n` +
-        'This replaces ALL current projects, notes, and records with this snapshot\'s contents. ' +
+        'This replaces ALL current projects, notes, records, and tasks with this snapshot\'s contents. ' +
         'This cannot be undone unless you take a snapshot first.',
     );
     if (!ok) return;
@@ -98,7 +98,7 @@ export default function AdminPage() {
     <div>
       <h1 className="mb-1 text-xl font-semibold tracking-tight">Admin</h1>
       <p className="mb-4 text-sm text-muted">
-        Snapshots capture all your projects, notes, and records right now. Restoring
+        Snapshots capture all your projects, notes, records, and tasks right now. Restoring
         replaces current data with a snapshot&apos;s contents.
       </p>
 
@@ -158,7 +158,9 @@ export default function AdminPage() {
                       {when} · {snapshot.data.projects.length} project
                       {snapshot.data.projects.length === 1 ? '' : 's'}, {snapshot.data.notes.length}{' '}
                       note{snapshot.data.notes.length === 1 ? '' : 's'}, {(snapshot.data.pa_recs ?? []).length}{' '}
-                      record{(snapshot.data.pa_recs ?? []).length === 1 ? '' : 's'}
+                      record{(snapshot.data.pa_recs ?? []).length === 1 ? '' : 's'},{' '}
+                      {(snapshot.data.pa_tasks ?? []).length} task
+                      {(snapshot.data.pa_tasks ?? []).length === 1 ? '' : 's'}
                     </p>
                   </div>
                 </div>

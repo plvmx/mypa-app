@@ -62,11 +62,41 @@ export interface PaRec {
   updated_at: string;
 }
 
+/** A single step within a Task. Ordered; no separate id, position is identity. */
+export interface TaskStep {
+  text: string;
+  completed: boolean;
+  /** When `completed` was last set to true; null while unchecked. */
+  completed_at: string | null;
+}
+
+/**
+ * A Task — an actionable item attached to a Project (like Records, always
+ * project-scoped; there is no "inbox" task). `started`/`completed` each pair
+ * with a timestamp recording when that checkbox was last checked, cleared
+ * back to null if unchecked. `steps` is an ordered checklist, each with its
+ * own completed flag + timestamp.
+ */
+export interface PaTask {
+  id: string;
+  user_id: string;
+  project_id: string;
+  title: string;
+  steps: TaskStep[];
+  started: boolean;
+  started_at: string | null;
+  completed: boolean;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** The full row data captured inside a Snapshot. */
 export interface SnapshotData {
   projects: Project[];
   notes: Note[];
   pa_recs: PaRec[];
+  pa_tasks: PaTask[];
 }
 
 /**

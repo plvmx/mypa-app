@@ -4,13 +4,14 @@ import { supabase } from '@/lib/supabaseClient';
 import { getProjects } from '@/lib/services/projectService';
 import { getNotes } from '@/lib/services/noteService';
 import { getPaRecs } from '@/lib/services/paRecService';
+import { getPaTasks } from '@/lib/services/paTaskService';
 import {
   getSnapshots,
   createSnapshot,
   deleteSnapshot,
   restoreSnapshot,
 } from '@/lib/services/snapshotService';
-import type { Project, Note, PaRec, Snapshot } from '@/lib/types';
+import type { Project, Note, PaRec, PaTask, Snapshot } from '@/lib/types';
 
 vi.mock('@/lib/supabaseClient', () => ({
   supabase: { from: vi.fn(), rpc: vi.fn() },
@@ -28,11 +29,16 @@ vi.mock('@/lib/services/paRecService', () => ({
   getPaRecs: vi.fn(),
 }));
 
+vi.mock('@/lib/services/paTaskService', () => ({
+  getPaTasks: vi.fn(),
+}));
+
 const mockFrom = vi.mocked(supabase.from) as unknown as ReturnType<typeof vi.fn>;
 const mockRpc = vi.mocked(supabase.rpc) as unknown as ReturnType<typeof vi.fn>;
 const mockGetProjects = vi.mocked(getProjects);
 const mockGetNotes = vi.mocked(getNotes);
 const mockGetPaRecs = vi.mocked(getPaRecs);
+const mockGetPaTasks = vi.mocked(getPaTasks);
 
 const sampleProject: Project = {
   id: 'p1',
@@ -71,11 +77,30 @@ const sampleRec: PaRec = {
   updated_at: '2026-07-14T00:00:00Z',
 };
 
+const sampleTask: PaTask = {
+  id: 't1',
+  user_id: 'u1',
+  project_id: 'p1',
+  title: 'Plan trip',
+  steps: [],
+  started: false,
+  started_at: null,
+  completed: false,
+  completed_at: null,
+  created_at: '2026-07-14T00:00:00Z',
+  updated_at: '2026-07-14T00:00:00Z',
+};
+
 const sampleSnapshot: Snapshot = {
   id: 's1',
   user_id: 'u1',
   label: 'Before cleanup',
-  data: { projects: [sampleProject], notes: [sampleNote], pa_recs: [sampleRec] },
+  data: {
+    projects: [sampleProject],
+    notes: [sampleNote],
+    pa_recs: [sampleRec],
+    pa_tasks: [sampleTask],
+  },
   created_at: '2026-07-17T00:00:00Z',
 };
 
@@ -97,10 +122,11 @@ describe('getSnapshots', () => {
 });
 
 describe('createSnapshot', () => {
-  it('captures all projects, notes, and records into the insert payload', async () => {
+  it('captures all projects, notes, records, and tasks into the insert payload', async () => {
     mockGetProjects.mockResolvedValue([sampleProject]);
     mockGetNotes.mockResolvedValue([sampleNote]);
     mockGetPaRecs.mockResolvedValue([sampleRec]);
+    mockGetPaTasks.mockResolvedValue([sampleTask]);
     const builder = makeQueryBuilder({ data: sampleSnapshot, error: null });
     mockFrom.mockReturnValue(builder);
 
@@ -109,10 +135,16 @@ describe('createSnapshot', () => {
     expect(mockGetProjects).toHaveBeenCalledWith({ status: 'all' });
     expect(mockGetNotes).toHaveBeenCalledWith();
     expect(mockGetPaRecs).toHaveBeenCalledWith();
+    expect(mockGetPaTasks).toHaveBeenCalledWith();
     expect(builder.insert).toHaveBeenCalledWith([
       {
         label: 'Before cleanup',
-        data: { projects: [sampleProject], notes: [sampleNote], pa_recs: [sampleRec] },
+        data: {
+          projects: [sampleProject],
+          notes: [sampleNote],
+          pa_recs: [sampleRec],
+          pa_tasks: [sampleTask],
+        },
       },
     ]);
   });
@@ -121,13 +153,14 @@ describe('createSnapshot', () => {
     mockGetProjects.mockResolvedValue([]);
     mockGetNotes.mockResolvedValue([]);
     mockGetPaRecs.mockResolvedValue([]);
+    mockGetPaTasks.mockResolvedValue([]);
     const builder = makeQueryBuilder({ data: sampleSnapshot, error: null });
     mockFrom.mockReturnValue(builder);
 
     await createSnapshot();
 
     expect(builder.insert).toHaveBeenCalledWith([
-      { label: null, data: { projects: [], notes: [], pa_recs: [] } },
+      { label: null, data: { projects: [], notes: [], pa_recs: [], pa_tasks: [] } },
     ]);
   });
 });
