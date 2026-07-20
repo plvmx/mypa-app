@@ -17,7 +17,6 @@ import { getPaTasks } from '@/lib/services/paTaskService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { getAncestors, getDescendantIds } from '@/lib/projectTree';
 import ProjectPicker from '@/components/ProjectPicker';
-import NoteComposer from '@/components/NoteComposer';
 import NoteCard from '@/components/NoteCard';
 import PaRecCard from '@/components/PaRecCard';
 import PaTaskCard from '@/components/PaTaskCard';
@@ -370,15 +369,21 @@ export default function ProjectDetailPage({
       </div>
 
       <div className="mb-4">
-        <h2 className="mb-2 text-sm font-semibold text-muted">Notes</h2>
-        <div className="mb-3">
-          <NoteComposer
-            projectId={id}
-            onCreated={(note) => setNotes((prev) => [note, ...prev])}
-          />
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-muted">Notes</h2>
+          <Link
+            href={`/app/projects/${id}/notes/new`}
+            className="rounded-xl bg-accent px-3 py-1.5 text-sm font-medium text-white"
+          >
+            New
+          </Link>
         </div>
         {notes.length === 0 ? (
-          <p className="text-sm text-muted">No notes yet — capture your first thought above.</p>
+          <div className="rounded-2xl border border-dashed border-border p-8 text-center">
+            <p className="text-sm text-muted">
+              No notes yet. Tap <span className="font-medium">New</span> to add your first one.
+            </p>
+          </div>
         ) : (
           <ul className="flex flex-col gap-2">
             {notes.map((note) => (
