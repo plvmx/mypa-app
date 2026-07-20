@@ -19,7 +19,7 @@ export default function NewPaTaskPage({
       <PaTaskForm
         projectId={id}
         onSaved={(task) => router.push(`/app/projects/${id}/tasks/${task.id}`)}
-        onCancel={() => router.push(`/app/projects/${id}/tasks`)}
+        onCancel={() => router.push(`/app/projects/${id}`)}
       />
     </div>
   );

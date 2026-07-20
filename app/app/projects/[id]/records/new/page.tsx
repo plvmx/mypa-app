@@ -55,7 +55,7 @@ export default function NewPaRecPage({
         defaultEvent={lastRecord?.event}
         defaultSite={lastRecord?.site}
         onSaved={(rec) => router.push(`/app/projects/${id}/records/${rec.id}`)}
-        onCancel={() => router.push(`/app/projects/${id}/records`)}
+        onCancel={() => router.push(`/app/projects/${id}`)}
       />
     </div>
   );

@@ -42,7 +42,7 @@ export default function EditPaRecPage({
     if (!confirm('Delete this record? This cannot be undone.')) return;
     try {
       await deletePaRec(recordId);
-      router.push(`/app/projects/${id}/records`);
+      router.push(`/app/projects/${id}`);
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -55,10 +55,10 @@ export default function EditPaRecPage({
       <div>
         <p className="text-sm text-muted">Record not found.</p>
         <Link
-          href={`/app/projects/${id}/records`}
+          href={`/app/projects/${id}`}
           className="mt-2 inline-block text-sm text-accent underline"
         >
-          Back to records
+          Back to project
         </Link>
       </div>
     );
@@ -80,7 +80,7 @@ export default function EditPaRecPage({
         projectId={id}
         initial={record}
         onSaved={(rec) => setRecord(rec)}
-        onCancel={() => router.push(`/app/projects/${id}/records`)}
+        onCancel={() => router.push(`/app/projects/${id}`)}
       />
     </div>
   );

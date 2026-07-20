@@ -17,9 +17,13 @@ import { getPaTasks } from '@/lib/services/paTaskService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { getAncestors, getDescendantIds } from '@/lib/projectTree';
 import ProjectPicker from '@/components/ProjectPicker';
-import type { Project } from '@/lib/types';
+import NoteComposer from '@/components/NoteComposer';
+import NoteCard from '@/components/NoteCard';
+import PaRecCard from '@/components/PaRecCard';
+import PaTaskCard from '@/components/PaTaskCard';
+import type { Project, Note, PaRec, PaTask } from '@/lib/types';
 
-/** Project detail: breadcrumb, sub-projects, and links to records/notes. */
+/** Project detail: breadcrumb, sub-projects, and inline tasks/records/notes. */
 export default function ProjectDetailPage({
   params,
 }: {
@@ -30,9 +34,9 @@ export default function ProjectDetailPage({
 
   const [project, setProject] = useState<Project | null>(null);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
-  const [noteCount, setNoteCount] = useState(0);
-  const [recordCount, setRecordCount] = useState(0);
-  const [taskCount, setTaskCount] = useState(0);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [records, setRecords] = useState<PaRec[]>([]);
+  const [tasks, setTasks] = useState<PaTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -57,13 +61,13 @@ export default function ProjectDetailPage({
       getPaRecs(id),
       getPaTasks(id),
     ])
-      .then(([proj, projNotes, allProj, records, tasks]) => {
+      .then(([proj, projNotes, allProj, projRecords, projTasks]) => {
         if (!active) return;
         setProject(proj);
-        setNoteCount(projNotes.length);
+        setNotes(projNotes);
         setAllProjects(allProj);
-        setRecordCount(records.length);
-        setTaskCount(tasks.length);
+        setRecords(projRecords);
+        setTasks(projTasks);
       })
       .catch((err) => {
         if (active) setError(getErrorMessage(err));
@@ -303,29 +307,95 @@ export default function ProjectDetailPage({
 
       <div className="mb-4">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-muted">Records</h2>
-          <Link href={`/app/projects/${id}/records`} className="text-sm text-accent">
-            {recordCount > 0 ? `View all (${recordCount})` : 'Add a record'}
-          </Link>
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted">Tasks</h2>
-          <Link href={`/app/projects/${id}/tasks`} className="text-sm text-accent">
-            {taskCount > 0 ? `View all (${taskCount})` : 'Add a task'}
+          <Link
+            href={`/app/projects/${id}/tasks/new`}
+            className="rounded-xl bg-accent px-3 py-1.5 text-sm font-medium text-white"
+          >
+            New
           </Link>
         </div>
+        {tasks.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border p-8 text-center">
+            <p className="text-sm text-muted">
+              No tasks yet. Tap <span className="font-medium">New</span> to add your first one.
+            </p>
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {tasks.map((task) => (
+              <li key={task.id}>
+                <PaTaskCard
+                  task={task}
+                  onDeleted={(deletedId) =>
+                    setTasks((prev) => prev.filter((t) => t.id !== deletedId))
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="mb-4">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-muted">Notes</h2>
-          <Link href={`/app/projects/${id}/notes`} className="text-sm text-accent">
-            {noteCount > 0 ? `View all (${noteCount})` : 'Add a note'}
+          <h2 className="text-sm font-semibold text-muted">Records</h2>
+          <Link
+            href={`/app/projects/${id}/records/new`}
+            className="rounded-xl bg-accent px-3 py-1.5 text-sm font-medium text-white"
+          >
+            New
           </Link>
         </div>
+        {records.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border p-8 text-center">
+            <p className="text-sm text-muted">
+              No records yet. Tap <span className="font-medium">New</span> to add your first one.
+            </p>
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {records.map((record) => (
+              <li key={record.id}>
+                <PaRecCard
+                  record={record}
+                  onDeleted={(deletedId) =>
+                    setRecords((prev) => prev.filter((r) => r.id !== deletedId))
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="mb-4">
+        <h2 className="mb-2 text-sm font-semibold text-muted">Notes</h2>
+        <div className="mb-3">
+          <NoteComposer
+            projectId={id}
+            onCreated={(note) => setNotes((prev) => [note, ...prev])}
+          />
+        </div>
+        {notes.length === 0 ? (
+          <p className="text-sm text-muted">No notes yet — capture your first thought above.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {notes.map((note) => (
+              <li key={note.id}>
+                <NoteCard
+                  note={note}
+                  onDeleted={(deletedId) =>
+                    setNotes((prev) => prev.filter((n) => n.id !== deletedId))
+                  }
+                  onUpdated={(updated) =>
+                    setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {showMovePicker && (
