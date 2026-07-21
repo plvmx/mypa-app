@@ -35,6 +35,8 @@ export interface Note {
   user_id: string;
   project_id: string | null;
   title: string | null;
+  /** e.g. a URL or citation the note relates to. */
+  reference: string | null;
   body: string;
   created_at: string;
   updated_at: string;

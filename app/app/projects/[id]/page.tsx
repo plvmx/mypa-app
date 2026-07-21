@@ -339,13 +339,7 @@ export default function ProjectDetailPage({
             New
           </Link>
         </div>
-        {tasks.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-8 text-center">
-            <p className="text-sm text-muted">
-              No tasks yet. Tap <span className="font-medium">New</span> to add your first one.
-            </p>
-          </div>
-        ) : (
+        {tasks.length > 0 && (
           <ul className="flex flex-col gap-2">
             {sortedTasks.map((task) => (
               <li key={task.id}>
@@ -374,13 +368,7 @@ export default function ProjectDetailPage({
             New
           </Link>
         </div>
-        {records.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-8 text-center">
-            <p className="text-sm text-muted">
-              No records yet. Tap <span className="font-medium">New</span> to add your first one.
-            </p>
-          </div>
-        ) : (
+        {records.length > 0 && (
           <ul className="flex flex-col gap-2">
             {records.map((record) => (
               <li key={record.id}>
@@ -406,13 +394,7 @@ export default function ProjectDetailPage({
             New
           </Link>
         </div>
-        {notes.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-8 text-center">
-            <p className="text-sm text-muted">
-              No notes yet. Tap <span className="font-medium">New</span> to add your first one.
-            </p>
-          </div>
-        ) : (
+        {notes.length > 0 && (
           <ul className="flex flex-col gap-2">
             {notes.map((note) => (
               <li key={note.id}>
