@@ -17,6 +17,7 @@ export default function NoteComposer({
   projectId?: string | null;
   onCreated: (note: Note) => void;
 }) {
+  const [reference, setReference] = useState('');
   const [body, setBody] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -27,7 +28,8 @@ export default function NoteComposer({
     setSaving(true);
     setError('');
     try {
-      const note = await createNote({ body, project_id: projectId });
+      const note = await createNote({ body, reference, project_id: projectId });
+      setReference('');
       setBody('');
       onCreated(note);
     } catch (err) {
@@ -39,6 +41,12 @@ export default function NoteComposer({
 
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-card p-3">
+      <input
+        value={reference}
+        onChange={(e) => setReference(e.target.value)}
+        placeholder="Reference (optional)"
+        className="mb-2 w-full bg-transparent px-1 text-sm outline-none"
+      />
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}

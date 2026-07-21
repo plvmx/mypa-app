@@ -13,6 +13,7 @@ const TABLE = 'notes';
 export interface CreateNoteInput {
   body: string;
   title?: string | null;
+  reference?: string | null;
   /** Attach to a project, or omit / null for an unfiled "inbox" thought. */
   project_id?: string | null;
 }
@@ -21,6 +22,7 @@ export interface CreateNoteInput {
 export interface UpdateNoteInput {
   body?: string;
   title?: string | null;
+  reference?: string | null;
   project_id?: string | null;
 }
 
@@ -64,6 +66,7 @@ export async function createNote(input: CreateNoteInput): Promise<Note> {
       {
         body,
         title: input.title?.trim() || null,
+        reference: input.reference?.trim() || null,
         project_id: input.project_id ?? null,
       },
     ])
@@ -82,6 +85,7 @@ export async function updateNote(id: string, input: UpdateNoteInput): Promise<No
     patch.body = body;
   }
   if (input.title !== undefined) patch.title = input.title?.trim() || null;
+  if (input.reference !== undefined) patch.reference = input.reference?.trim() || null;
   if (input.project_id !== undefined) patch.project_id = input.project_id;
 
   const { data, error } = await supabase

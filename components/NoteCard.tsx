@@ -19,6 +19,7 @@ export default function NoteCard({
   const [error, setError] = useState('');
 
   const [editing, setEditing] = useState(false);
+  const [reference, setReference] = useState(note.reference ?? '');
   const [body, setBody] = useState(note.body);
   const [saving, setSaving] = useState(false);
 
@@ -36,6 +37,7 @@ export default function NoteCard({
   }
 
   function startEditing() {
+    setReference(note.reference ?? '');
     setBody(note.body);
     setError('');
     setEditing(true);
@@ -46,7 +48,7 @@ export default function NoteCard({
     setSaving(true);
     setError('');
     try {
-      const updated = await updateNote(note.id, { body });
+      const updated = await updateNote(note.id, { body, reference });
       onUpdated?.(updated);
       setEditing(false);
     } catch (err) {
@@ -64,6 +66,12 @@ export default function NoteCard({
   if (editing) {
     return (
       <div className="rounded-2xl border border-border bg-card p-4">
+        <input
+          value={reference}
+          onChange={(e) => setReference(e.target.value)}
+          placeholder="Reference (optional)"
+          className="mb-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+        />
         <textarea
           autoFocus
           value={body}
@@ -101,6 +109,7 @@ export default function NoteCard({
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       {note.title && <h3 className="mb-1 font-medium">{note.title}</h3>}
+      {note.reference && <p className="mb-1 text-xs text-muted">{note.reference}</p>}
       <p className="whitespace-pre-wrap text-sm">{note.body}</p>
       <div className="mt-3 flex items-center justify-between">
         <time className="text-xs text-muted">{created}</time>

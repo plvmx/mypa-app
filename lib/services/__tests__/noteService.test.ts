@@ -21,6 +21,7 @@ const sampleNote: Note = {
   user_id: 'u1',
   project_id: 'p1',
   title: 'Idea',
+  reference: null,
   body: 'Ship the MVP',
   created_at: '2026-07-14T00:00:00Z',
   updated_at: '2026-07-14T00:00:00Z',
@@ -80,7 +81,7 @@ describe('createNote', () => {
     await createNote({ body: '  Ship the MVP  ' });
 
     expect(builder.insert).toHaveBeenCalledWith([
-      { body: 'Ship the MVP', title: null, project_id: null },
+      { body: 'Ship the MVP', title: null, reference: null, project_id: null },
     ]);
   });
 
@@ -91,7 +92,18 @@ describe('createNote', () => {
     await createNote({ body: 'x', project_id: 'p1' });
 
     expect(builder.insert).toHaveBeenCalledWith([
-      { body: 'x', title: null, project_id: 'p1' },
+      { body: 'x', title: null, reference: null, project_id: 'p1' },
+    ]);
+  });
+
+  it('trims and stores the reference field', async () => {
+    const builder = makeQueryBuilder({ data: sampleNote, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await createNote({ body: 'x', reference: '  https://example.com  ' });
+
+    expect(builder.insert).toHaveBeenCalledWith([
+      { body: 'x', title: null, reference: 'https://example.com', project_id: null },
     ]);
   });
 
@@ -115,6 +127,19 @@ describe('updateNote', () => {
   it('rejects clearing the body to blank', async () => {
     await expect(updateNote('n1', { body: '  ' })).rejects.toThrow('needs some text');
     expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('trims the reference field and clears it to null when blank', async () => {
+    const builder = makeQueryBuilder({ data: sampleNote, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await updateNote('n1', { reference: '  https://example.com  ' });
+
+    expect(builder.update).toHaveBeenCalledWith({ reference: 'https://example.com' });
+
+    await updateNote('n1', { reference: '   ' });
+
+    expect(builder.update).toHaveBeenLastCalledWith({ reference: null });
   });
 });
 
