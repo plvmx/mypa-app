@@ -31,11 +31,14 @@ export default function PaTaskForm({
   projectId,
   initial,
   onSaved,
+  onTimerToggled,
   onCancel,
 }: {
   projectId: string;
   initial?: PaTask;
   onSaved: (task: PaTask) => void;
+  /** Called when the timer is started/stopped, separately from `onSaved` so a timer toggle doesn't trigger a post-save redirect. */
+  onTimerToggled?: (task: PaTask) => void;
   onCancel?: () => void;
 }) {
   const [title, setTitle] = useState(initial?.title ?? '');
@@ -71,7 +74,7 @@ export default function PaTaskForm({
     try {
       const updated = running ? await stopTimer(initial.id) : await startTimer(initial.id);
       setTimeEntries(updated.time_entries);
-      onSaved(updated);
+      onTimerToggled?.(updated);
     } catch (err) {
       setTimerError(getErrorMessage(err));
     } finally {
