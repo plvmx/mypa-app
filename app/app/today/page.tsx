@@ -1,96 +1,15 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getPaTasks } from '@/lib/services/paTaskService';
 import { getProjects } from '@/lib/services/projectService';
-import { getErrorMessage } from '@/lib/errorUtils';
-import PaTaskCard from '@/components/PaTaskCard';
-import type { PaTask, Project } from '@/lib/types';
+import TodayPageClient from './TodayPageClient';
 
-/** End of the calendar day containing `now`, in local time. */
-function endOfDay(now: Date): Date {
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
-  return end;
-}
+/** Server-fetches tasks + projects so the Today list has content on first paint. */
+export default async function TodayPage() {
+  const supabase = await createSupabaseServerClient();
+  const [tasks, projects] = await Promise.all([
+    getPaTasks(undefined, supabase),
+    getProjects({ status: 'all' }, supabase),
+  ]);
 
-/** A task belongs in Today if it's not done and either its due date or its reminder has arrived. */
-function isDueOrReminding(task: PaTask, cutoff: Date): boolean {
-  if (task.completed) return false;
-  const dueSoon = task.due_at !== null && new Date(task.due_at) <= cutoff;
-  const remindingSoon = task.remind_at !== null && new Date(task.remind_at) <= cutoff;
-  return dueSoon || remindingSoon;
-}
-
-function earliestRelevantTime(task: PaTask): number {
-  const times = [task.due_at, task.remind_at].filter((t): t is string => t !== null).map((t) => new Date(t).getTime());
-  return Math.min(...times);
-}
-
-/** Cross-project view of overdue and due-today tasks, surfaced in-app (no push/email delivery). */
-export default function TodayPage() {
-  const [tasks, setTasks] = useState<PaTask[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let active = true;
-    Promise.all([getPaTasks(), getProjects({ status: 'all' })])
-      .then(([allTasks, allProjects]) => {
-        if (!active) return;
-        setTasks(allTasks);
-        setProjects(allProjects);
-      })
-      .catch((err) => {
-        if (active) setError(getErrorMessage(err));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  if (loading) return <p className="text-sm text-muted">Loading…</p>;
-  if (error) return <p className="text-sm text-red-500">{error}</p>;
-
-  const cutoff = endOfDay(new Date());
-  const projectTitleById = new Map(projects.map((p) => [p.id, p.title]));
-  const dueTasks = tasks
-    .filter((task) => isDueOrReminding(task, cutoff))
-    .sort((a, b) => earliestRelevantTime(a) - earliestRelevantTime(b));
-
-  return (
-    <div>
-      <h1 className="mb-4 text-xl font-semibold tracking-tight">Today</h1>
-      {dueTasks.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border p-8 text-center">
-          <p className="text-sm text-muted">Nothing overdue or due today. Nice work.</p>
-        </div>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {dueTasks.map((task) => (
-            <li key={task.id}>
-              <Link
-                href={`/app/projects/${task.project_id}`}
-                className="mb-1 block text-xs text-muted hover:text-accent"
-              >
-                {projectTitleById.get(task.project_id) ?? 'Unknown project'}
-              </Link>
-              <PaTaskCard
-                task={task}
-                onDeleted={(deletedId) => setTasks((prev) => prev.filter((t) => t.id !== deletedId))}
-                onUpdated={(updated) =>
-                  setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
-                }
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
+  return <TodayPageClient initialTasks={tasks} projects={projects} />;
 }

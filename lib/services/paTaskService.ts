@@ -1,6 +1,9 @@
 import { supabase } from '@/lib/supabaseClient';
 import type { PaTask, TaskStep, TimeEntry } from '@/lib/types';
 
+/** Either the browser client or a per-request server client — both share this shape. */
+type Client = typeof supabase;
+
 /**
  * CRUD for the `pa_tasks` table ("Tasks"). All database access for tasks
  * goes through this module. `user_id` is set by a database default
@@ -46,10 +49,12 @@ function cleanSteps(steps: TaskStep[]): TaskStep[] {
 
 /**
  * List tasks, newest first. Pass `projectId` to scope to one project, or
- * omit to fetch all of the caller's tasks (used by snapshotService).
+ * omit to fetch all of the caller's tasks (used by snapshotService). Pass
+ * `client` to query from a server component's request-scoped client instead
+ * of the default browser client (e.g. for server-side prefetching).
  */
-export async function getPaTasks(projectId?: string): Promise<PaTask[]> {
-  let query = supabase
+export async function getPaTasks(projectId?: string, client: Client = supabase): Promise<PaTask[]> {
+  let query = client
     .from(TABLE)
     .select('*')
     .order('created_at', { ascending: false });
