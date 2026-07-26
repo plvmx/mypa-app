@@ -24,24 +24,6 @@ function ProjectTreeItem({
   return (
     <li>
       <div className="flex items-center gap-1" style={{ marginLeft: depth * 16 }}>
-        {hasChildren ? (
-          <button
-            type="button"
-            onClick={() => onToggle(node.id)}
-            aria-expanded={expanded}
-            aria-label={expanded ? 'Collapse sub-projects' : 'Expand sub-projects'}
-            className="flex h-8 w-8 shrink-0 items-center justify-center text-muted hover:text-accent"
-          >
-            <span
-              aria-hidden
-              className={`inline-block transition-transform ${expanded ? 'rotate-90' : ''}`}
-            >
-              ›
-            </span>
-          </button>
-        ) : (
-          <span aria-hidden className="w-8 shrink-0" />
-        )}
         <Link
           href={`/app/projects/${node.id}`}
           className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-border bg-card p-4 active:bg-border/40"
@@ -57,10 +39,24 @@ function ProjectTreeItem({
               <span className="block truncate text-sm text-muted">{node.description}</span>
             )}
           </span>
-          <span aria-hidden className="text-muted">
-            ›
-          </span>
         </Link>
+        {hasChildren && (
+          <button
+            type="button"
+            onClick={() => onToggle(node.id)}
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Collapse sub-projects' : 'Expand sub-projects'}
+            className="flex shrink-0 items-center gap-1 px-2 py-2 text-muted hover:text-accent"
+          >
+            <span
+              aria-hidden
+              className={`inline-block transition-transform ${expanded ? 'rotate-90' : ''}`}
+            >
+              ›
+            </span>
+            <span className="text-xs font-medium">{node.children.length}</span>
+          </button>
+        )}
       </div>
       {hasChildren && expanded && (
         <ul className="mt-2 flex flex-col gap-2">
