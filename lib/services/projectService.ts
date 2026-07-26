@@ -52,8 +52,8 @@ export async function getProjects(
 }
 
 /** Fetch a single project by id, or null if it does not exist / is not visible. */
-export async function getProjectById(id: string): Promise<Project | null> {
-  const { data, error } = await supabase
+export async function getProjectById(id: string, client: Client = supabase): Promise<Project | null> {
+  const { data, error } = await client
     .from(TABLE)
     .select('*')
     .eq('id', id)

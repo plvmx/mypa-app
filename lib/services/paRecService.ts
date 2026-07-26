@@ -1,6 +1,9 @@
 import { supabase } from '@/lib/supabaseClient';
 import type { PaRec } from '@/lib/types';
 
+/** Either the browser client or a per-request server client — both share this shape. */
+type Client = typeof supabase;
+
 /**
  * CRUD for the `pa_recs` table ("Records") plus the image helpers backing
  * their `images` field. All database access for records goes through this
@@ -42,10 +45,12 @@ function cleanList(values: string[]): string[] {
 
 /**
  * List records, newest first. Pass `projectId` to scope to one project, or
- * omit to fetch all of the caller's records (used by snapshotService).
+ * omit to fetch all of the caller's records (used by snapshotService). Pass
+ * `client` to query from a server component's request-scoped client instead
+ * of the default browser client (e.g. for server-side prefetching).
  */
-export async function getPaRecs(projectId?: string): Promise<PaRec[]> {
-  let query = supabase
+export async function getPaRecs(projectId?: string, client: Client = supabase): Promise<PaRec[]> {
+  let query = client
     .from(TABLE)
     .select('*')
     .order('created_at', { ascending: false });

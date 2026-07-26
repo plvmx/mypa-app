@@ -1,6 +1,9 @@
 import { supabase } from '@/lib/supabaseClient';
 import type { Note } from '@/lib/types';
 
+/** Either the browser client or a per-request server client — both share this shape. */
+type Client = typeof supabase;
+
 /**
  * CRUD for the `notes` table. All database access for notes goes through this
  * module. `user_id` is set by a database default (`auth.uid()`) and RLS fences
@@ -28,12 +31,15 @@ export interface UpdateNoteInput {
 
 /**
  * List notes, newest first. Pass `projectId` to scope to one project, or the
- * literal `null` to fetch only unfiled notes. Omit to fetch all notes.
+ * literal `null` to fetch only unfiled notes. Omit to fetch all notes. Pass
+ * `client` to query from a server component's request-scoped client instead
+ * of the default browser client (e.g. for server-side prefetching).
  */
 export async function getNotes(
   options: { projectId?: string | null } = {},
+  client: Client = supabase,
 ): Promise<Note[]> {
-  let query = supabase
+  let query = client
     .from(TABLE)
     .select('*')
     .order('created_at', { ascending: false });
