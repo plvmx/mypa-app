@@ -23,6 +23,53 @@ import PaRecCard from '@/components/PaRecCard';
 import PaTaskCard from '@/components/PaTaskCard';
 import type { Project, Note, PaRec, PaTask } from '@/lib/types';
 
+/** Section label with a show/hide toggle (with count) and a "new" link, used for Tasks/Records/Notes. */
+function SectionHeader({
+  label,
+  count,
+  shown,
+  onToggle,
+  newHref,
+  newLabel,
+}: {
+  label: string;
+  count: number;
+  shown: boolean;
+  onToggle: () => void;
+  newHref: string;
+  newLabel: string;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-sm font-semibold text-muted">{label}</span>
+      {count > 0 && (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={shown}
+          aria-label={shown ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          className="flex items-center gap-1 text-muted hover:text-accent"
+        >
+          <span
+            aria-hidden
+            className={`inline-block transition-transform ${shown ? 'rotate-90' : ''}`}
+          >
+            ›
+          </span>
+          <span className="text-xs font-medium">{count}</span>
+        </button>
+      )}
+      <Link
+        href={newHref}
+        aria-label={newLabel}
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-base leading-none text-muted hover:text-accent"
+      >
+        +
+      </Link>
+    </div>
+  );
+}
+
 /** Project detail: breadcrumb, sub-projects, and inline tasks/records/notes. */
 export default function ProjectDetailPage({
   params,
@@ -44,7 +91,10 @@ export default function ProjectDetailPage({
   const [creatingSub, setCreatingSub] = useState(false);
   const [subError, setSubError] = useState('');
   const [showSubForm, setShowSubForm] = useState(false);
-  const [showChildren, setShowChildren] = useState(true);
+  const [showChildren, setShowChildren] = useState(false);
+  const [showTasks, setShowTasks] = useState(true);
+  const [showRecords, setShowRecords] = useState(true);
+  const [showNotes, setShowNotes] = useState(true);
 
   const [showMovePicker, setShowMovePicker] = useState(false);
 
@@ -344,89 +394,81 @@ export default function ProjectDetailPage({
         )}
       </div>
 
-      <div className="mb-4">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-muted">Tasks</h2>
-          <Link
-            href={`/app/projects/${id}/tasks/new`}
-            className="rounded-xl bg-accent px-3 py-1.5 text-sm font-medium text-white"
-          >
-            New
-          </Link>
-        </div>
-        {tasks.length > 0 && (
-          <ul className="flex flex-col gap-2">
-            {sortedTasks.map((task) => (
-              <li key={task.id}>
-                <PaTaskCard
-                  task={task}
-                  onDeleted={(deletedId) =>
-                    setTasks((prev) => prev.filter((t) => t.id !== deletedId))
-                  }
-                  onUpdated={(updated) =>
-                    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
-                  }
-                />
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <SectionHeader
+          label="Tasks"
+          count={tasks.length}
+          shown={showTasks}
+          onToggle={() => setShowTasks((v) => !v)}
+          newHref={`/app/projects/${id}/tasks/new`}
+          newLabel="New task"
+        />
+        <SectionHeader
+          label="Records"
+          count={records.length}
+          shown={showRecords}
+          onToggle={() => setShowRecords((v) => !v)}
+          newHref={`/app/projects/${id}/records/new`}
+          newLabel="New record"
+        />
+        <SectionHeader
+          label="Notes"
+          count={notes.length}
+          shown={showNotes}
+          onToggle={() => setShowNotes((v) => !v)}
+          newHref={`/app/projects/${id}/notes/new`}
+          newLabel="New note"
+        />
       </div>
 
-      <div className="mb-4">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-muted">Records</h2>
-          <Link
-            href={`/app/projects/${id}/records/new`}
-            className="rounded-xl bg-accent px-3 py-1.5 text-sm font-medium text-white"
-          >
-            New
-          </Link>
-        </div>
-        {records.length > 0 && (
-          <ul className="flex flex-col gap-2">
-            {records.map((record) => (
-              <li key={record.id}>
-                <PaRecCard
-                  record={record}
-                  onDeleted={(deletedId) =>
-                    setRecords((prev) => prev.filter((r) => r.id !== deletedId))
-                  }
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {tasks.length > 0 && showTasks && (
+        <ul className="mb-4 flex flex-col gap-2">
+          {sortedTasks.map((task) => (
+            <li key={task.id}>
+              <PaTaskCard
+                task={task}
+                onDeleted={(deletedId) =>
+                  setTasks((prev) => prev.filter((t) => t.id !== deletedId))
+                }
+                onUpdated={(updated) =>
+                  setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      )}
 
-      <div className="mb-4">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-muted">Notes</h2>
-          <Link
-            href={`/app/projects/${id}/notes/new`}
-            className="rounded-xl bg-accent px-3 py-1.5 text-sm font-medium text-white"
-          >
-            New
-          </Link>
-        </div>
-        {notes.length > 0 && (
-          <ul className="flex flex-col gap-2">
-            {notes.map((note) => (
-              <li key={note.id}>
-                <NoteCard
-                  note={note}
-                  onDeleted={(deletedId) =>
-                    setNotes((prev) => prev.filter((n) => n.id !== deletedId))
-                  }
-                  onUpdated={(updated) =>
-                    setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
-                  }
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {records.length > 0 && showRecords && (
+        <ul className="mb-4 flex flex-col gap-2">
+          {records.map((record) => (
+            <li key={record.id}>
+              <PaRecCard
+                record={record}
+                onDeleted={(deletedId) =>
+                  setRecords((prev) => prev.filter((r) => r.id !== deletedId))
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {notes.length > 0 && showNotes && (
+        <ul className="mb-4 flex flex-col gap-2">
+          {notes.map((note) => (
+            <li key={note.id}>
+              <NoteCard
+                note={note}
+                onDeleted={(deletedId) => setNotes((prev) => prev.filter((n) => n.id !== deletedId))}
+                onUpdated={(updated) =>
+                  setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      )}
 
       {showMovePicker && (
         <ProjectPicker
