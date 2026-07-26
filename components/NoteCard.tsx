@@ -5,7 +5,7 @@ import { deleteNote, updateNote } from '@/lib/services/noteService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import type { Note } from '@/lib/types';
 
-/** Displays a single note with edit and delete actions. */
+/** Displays a single note; click to edit inline, or delete. */
 export default function NoteCard({
   note,
   onDeleted,
@@ -108,28 +108,21 @@ export default function NoteCard({
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
-      {note.title && <h3 className="mb-1 font-medium">{note.title}</h3>}
-      {note.reference && <p className="mb-1 text-xs text-muted">{note.reference}</p>}
-      <p className="whitespace-pre-wrap text-sm">{note.body}</p>
+      <button type="button" onClick={startEditing} className="block w-full text-left">
+        {note.title && <h3 className="mb-1 font-medium">{note.title}</h3>}
+        {note.reference && <p className="mb-1 text-xs text-muted">{note.reference}</p>}
+        <p className="whitespace-pre-wrap text-sm">{note.body}</p>
+      </button>
       <div className="mt-3 flex items-center justify-between">
         <time className="text-xs text-muted">{created}</time>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={startEditing}
-            className="text-xs text-muted hover:text-accent"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={busy}
-            className="text-xs text-muted hover:text-red-500 disabled:opacity-50"
-          >
-            Delete
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={busy}
+          className="text-xs text-muted hover:text-red-500 disabled:opacity-50"
+        >
+          Delete
+        </button>
       </div>
       {error && (
         <p className="mt-2 text-sm text-red-500" role="alert">

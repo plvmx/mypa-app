@@ -79,7 +79,8 @@ export default function EditPaTaskPage({
       <PaTaskForm
         projectId={id}
         initial={task}
-        onSaved={(t) => setTask(t)}
+        onSaved={() => router.push(`/app/projects/${id}`)}
+        onTimerToggled={(t) => setTask(t)}
         onCancel={() => router.push(`/app/projects/${id}`)}
       />
     </div>

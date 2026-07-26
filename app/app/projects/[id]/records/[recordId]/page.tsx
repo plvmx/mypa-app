@@ -79,7 +79,7 @@ export default function EditPaRecPage({
       <PaRecForm
         projectId={id}
         initial={record}
-        onSaved={(rec) => setRecord(rec)}
+        onSaved={() => router.push(`/app/projects/${id}`)}
         onCancel={() => router.push(`/app/projects/${id}`)}
       />
     </div>
