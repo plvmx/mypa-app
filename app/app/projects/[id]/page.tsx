@@ -15,9 +15,10 @@ import { getNotes } from '@/lib/services/noteService';
 import { getPaRecs } from '@/lib/services/paRecService';
 import { getPaTasks } from '@/lib/services/paTaskService';
 import { getErrorMessage } from '@/lib/errorUtils';
-import { getAncestors, getDescendantIds, resolveProjectColor } from '@/lib/projectTree';
+import { buildProjectTree, getAncestors, getDescendantIds, resolveProjectColor } from '@/lib/projectTree';
 import ProjectPicker from '@/components/ProjectPicker';
 import ColorPicker from '@/components/ColorPicker';
+import ProjectTree from '@/components/ProjectTree';
 import NoteCard from '@/components/NoteCard';
 import PaRecCard from '@/components/PaRecCard';
 import PaTaskCard from '@/components/PaTaskCard';
@@ -223,7 +224,8 @@ export default function ProjectDetailPage({
   });
 
   const ancestors = getAncestors(allProjects, id);
-  const children = allProjects.filter((p) => p.parent_id === id);
+  const descendantIds = getDescendantIds(allProjects, id);
+  const childTree = buildProjectTree(allProjects.filter((p) => descendantIds.has(p.id)));
   const excludedIds = getDescendantIds(allProjects, id).add(id);
 
   return (
@@ -280,7 +282,7 @@ export default function ProjectDetailPage({
                 style={{ background: resolveProjectColor(project, allProjects) }}
               />
               <span className="truncate">{project.title}</span>
-              {children.length > 0 && (
+              {childTree.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setShowChildren((v) => !v)}
@@ -294,7 +296,7 @@ export default function ProjectDetailPage({
                   >
                     ›
                   </span>
-                  <span className="text-xs font-medium">{children.length}</span>
+                  <span className="text-xs font-medium">{childTree.length}</span>
                 </button>
               )}
               <button
@@ -370,27 +372,8 @@ export default function ProjectDetailPage({
           </form>
         )}
 
-        {children.length > 0 && showChildren && (
-          <ul className="flex flex-col gap-2">
-            {children.map((child) => (
-              <li key={child.id}>
-                <Link
-                  href={`/app/projects/${child.id}`}
-                  className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 active:bg-border/40"
-                >
-                  <span
-                    aria-hidden
-                    className="h-3 w-3 shrink-0 rounded-full"
-                    style={{ background: resolveProjectColor(child, allProjects) }}
-                  />
-                  <span className="min-w-0 flex-1 truncate font-medium">{child.title}</span>
-                  <span aria-hidden className="text-muted">
-                    ›
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+        {childTree.length > 0 && showChildren && (
+          <ProjectTree nodes={childTree} projects={allProjects} />
         )}
       </div>
 
