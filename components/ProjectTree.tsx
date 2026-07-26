@@ -23,11 +23,11 @@ function ProjectTreeItem({
 
   return (
     <li>
-      <div className="flex items-center gap-1" style={{ marginLeft: depth * 16 }}>
-        <Link
-          href={`/app/projects/${node.id}`}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-border bg-card p-4 active:bg-border/40"
-        >
+      <div
+        className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 active:bg-border/40"
+        style={{ marginLeft: depth * 16 }}
+      >
+        <Link href={`/app/projects/${node.id}`} className="flex min-w-0 flex-1 items-center gap-3">
           <span
             aria-hidden
             className="h-3 w-3 shrink-0 rounded-full"
@@ -46,7 +46,7 @@ function ProjectTreeItem({
             onClick={() => onToggle(node.id)}
             aria-expanded={expanded}
             aria-label={expanded ? 'Collapse sub-projects' : 'Expand sub-projects'}
-            className="flex shrink-0 items-center gap-1 px-2 py-2 text-muted hover:text-accent"
+            className="flex shrink-0 items-center gap-1 text-muted hover:text-accent"
           >
             <span
               aria-hidden
