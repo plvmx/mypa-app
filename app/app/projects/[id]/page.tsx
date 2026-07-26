@@ -44,6 +44,7 @@ export default function ProjectDetailPage({
   const [creatingSub, setCreatingSub] = useState(false);
   const [subError, setSubError] = useState('');
   const [showSubForm, setShowSubForm] = useState(false);
+  const [showChildren, setShowChildren] = useState(true);
 
   const [showMovePicker, setShowMovePicker] = useState(false);
 
@@ -229,6 +230,31 @@ export default function ProjectDetailPage({
                 style={{ background: resolveProjectColor(project, allProjects) }}
               />
               <span className="truncate">{project.title}</span>
+              {children.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowChildren((v) => !v)}
+                  aria-expanded={showChildren}
+                  aria-label={showChildren ? 'Hide sub-projects' : 'Show sub-projects'}
+                  className="flex shrink-0 items-center gap-1 text-sm font-normal text-muted hover:text-accent"
+                >
+                  <span
+                    aria-hidden
+                    className={`inline-block transition-transform ${showChildren ? 'rotate-90' : ''}`}
+                  >
+                    ›
+                  </span>
+                  <span className="text-xs font-medium">{children.length}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowSubForm((v) => !v)}
+                aria-label={showSubForm ? 'Cancel new sub-project' : 'New sub-project'}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-base font-normal leading-none text-muted hover:text-accent"
+              >
+                {showSubForm ? '×' : '+'}
+              </button>
             </h1>
             {project.description && (
               <p className="mt-1 text-sm text-muted">{project.description}</p>
@@ -268,17 +294,6 @@ export default function ProjectDetailPage({
       )}
 
       <div className="mb-4">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-muted">Sub-projects</h2>
-          <button
-            type="button"
-            onClick={() => setShowSubForm((v) => !v)}
-            className="text-sm text-accent"
-          >
-            {showSubForm ? 'Cancel' : 'New sub-project'}
-          </button>
-        </div>
-
         {showSubForm && (
           <form onSubmit={handleCreateSub} className="mb-3 rounded-2xl border border-border bg-card p-3">
             <input
@@ -305,7 +320,7 @@ export default function ProjectDetailPage({
           </form>
         )}
 
-        {children.length > 0 && (
+        {children.length > 0 && showChildren && (
           <ul className="flex flex-col gap-2">
             {children.map((child) => (
               <li key={child.id}>
