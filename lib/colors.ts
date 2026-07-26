@@ -15,7 +15,6 @@ export const PALE_PROJECT_COLORS = [
   '#d3f0ec', // teal
   '#fbdbdb', // red
   '#dbe0fb', // indigo
-  '#e3e3e8', // gray
 ];
 
 /** Used as the base color when a top-level project has none set. */
