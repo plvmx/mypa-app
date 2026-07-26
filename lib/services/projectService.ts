@@ -1,6 +1,9 @@
 import { supabase } from '@/lib/supabaseClient';
 import type { Project, ProjectStatus } from '@/lib/types';
 
+/** Either the browser client or a per-request server client — both share this shape. */
+type Client = typeof supabase;
+
 /**
  * CRUD for the `projects` table. All database access for projects goes through
  * this module — pages and components must not query `supabase` directly.
@@ -28,12 +31,17 @@ export interface UpdateProjectInput {
   status?: ProjectStatus;
 }
 
-/** List projects, most-recently-updated first. Defaults to active only. */
+/**
+ * List projects, most-recently-updated first. Defaults to active only.
+ * Pass `client` to query from a server component's request-scoped client
+ * instead of the default browser client (e.g. for server-side prefetching).
+ */
 export async function getProjects(
   options: { status?: ProjectStatus | 'all' } = {},
+  client: Client = supabase,
 ): Promise<Project[]> {
   const { status = 'active' } = options;
-  let query = supabase
+  let query = client
     .from(TABLE)
     .select('*')
     .order('updated_at', { ascending: false });
