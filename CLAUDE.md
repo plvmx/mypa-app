@@ -121,7 +121,7 @@ The MVP is deliberately small. Likely next slices, roughly in order:
 2. **Goals** — objectives with target dates + status, optionally tied to a project.
 3. **Tasks + reminders** — actionable items with due dates and an in-app "Today" view.
 4. **Editing** — inline edit for projects/notes (services already support `update*`).
-5. **Tags / search** across notes.
+5. **Tags / search** — ~~global substring search across all content~~ done (`/app/search`, `searchService.ts`, `search_everything` RPC + trigram indexes in `0009_search.sql`). **Tags** still open.
 6. **Notifications** — revisit web push or email once the core is solid.
 
 Keep the service-layer + tested-first discipline as each slice lands.
