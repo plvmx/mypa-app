@@ -108,6 +108,25 @@ export interface PaTask {
   updated_at: string;
 }
 
+/** The kind of item a global-search hit refers to. */
+export type SearchResultType = 'project' | 'note' | 'record' | 'task';
+
+/**
+ * One hit from the global search (`search_everything` RPC). A uniform shape
+ * across all four content types so the search UI can render and link to any
+ * match. `project_id` is the project the item lives under — null only for an
+ * unfiled inbox note. `snippet` is a truncated slice of the matched text for
+ * display; `title` is the item's display heading.
+ */
+export interface SearchResult {
+  type: SearchResultType;
+  id: string;
+  project_id: string | null;
+  title: string;
+  snippet: string | null;
+  created_at: string;
+}
+
 /** The full row data captured inside a Snapshot. */
 export interface SnapshotData {
   projects: Project[];
