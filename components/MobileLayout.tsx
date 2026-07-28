@@ -67,13 +67,33 @@ export default function MobileLayout({ children }: { children: ReactNode }) {
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/80 px-4 py-3 backdrop-blur">
         <span className="text-lg font-semibold tracking-tight">MyPA</span>
-        <button
-          type="button"
-          onClick={() => signOut()}
-          className="text-sm text-muted hover:text-foreground"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/app/search"
+            aria-label="Search"
+            className={`${
+              pathname.startsWith('/app/search') ? 'text-accent' : 'text-muted'
+            } hover:text-foreground`}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="h-5 w-5"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.3-4.3" strokeLinecap="round" />
+            </svg>
+          </Link>
+          <button
+            type="button"
+            onClick={() => signOut()}
+            className="text-sm text-muted hover:text-foreground"
+          >
+            Sign out
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 px-4 pb-24 pt-4">{children}</main>
