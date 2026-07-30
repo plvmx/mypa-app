@@ -3,13 +3,19 @@
 import { useState } from 'react';
 import NoteComposer from '@/components/NoteComposer';
 import NoteCard from '@/components/NoteCard';
-import type { Note } from '@/lib/types';
+import type { Note, Project } from '@/lib/types';
 
 /**
  * Notes inbox: every note across all projects, newest first, plus a quick
  * capture box for unfiled thoughts. A lightweight "brain dump" surface.
  */
-export default function NotesPageClient({ initialNotes }: { initialNotes: Note[] }) {
+export default function NotesPageClient({
+  initialNotes,
+  projects,
+}: {
+  initialNotes: Note[];
+  projects: Project[];
+}) {
   const [notes, setNotes] = useState<Note[]>(initialNotes);
 
   return (
@@ -31,6 +37,7 @@ export default function NotesPageClient({ initialNotes }: { initialNotes: Note[]
             <li key={note.id}>
               <NoteCard
                 note={note}
+                projects={projects}
                 onDeleted={(id) => setNotes((prev) => prev.filter((n) => n.id !== id))}
                 onUpdated={(updated) =>
                   setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))

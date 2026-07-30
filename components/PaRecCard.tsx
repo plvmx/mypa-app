@@ -2,20 +2,43 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { deletePaRec } from '@/lib/services/paRecService';
+import { deletePaRec, updatePaRec } from '@/lib/services/paRecService';
 import { getErrorMessage } from '@/lib/errorUtils';
-import type { PaRec } from '@/lib/types';
+import ProjectPicker from '@/components/ProjectPicker';
+import type { PaRec, Project } from '@/lib/types';
 
-/** Summary card for a record in the records list; links to its edit page. */
+/**
+ * Summary card for a record in the records list; links to its edit page.
+ * Pass `projects` to enable the "Move" action; omit it to hide Move where
+ * the project list isn't available.
+ */
 export default function PaRecCard({
   record,
+  projects,
   onDeleted,
+  onUpdated,
 }: {
   record: PaRec;
+  projects?: Project[];
   onDeleted: (id: string) => void;
+  onUpdated?: (record: PaRec) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [showMovePicker, setShowMovePicker] = useState(false);
+  const [moveError, setMoveError] = useState('');
+
+  async function handleMove(newProjectId: string | null) {
+    setShowMovePicker(false);
+    if (newProjectId === null) return;
+    setMoveError('');
+    try {
+      const updated = await updatePaRec(record.id, { project_id: newProjectId });
+      onUpdated?.(updated);
+    } catch (err) {
+      setMoveError(getErrorMessage(err));
+    }
+  }
 
   async function handleDelete() {
     if (busy) return;
@@ -48,19 +71,39 @@ export default function PaRecCard({
       </Link>
       <div className="mt-3 flex items-center justify-between">
         <time className="text-xs text-muted">{created}</time>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={busy}
-          className="text-xs text-muted hover:text-red-500 disabled:opacity-50"
-        >
-          Delete
-        </button>
+        <div className="flex items-center gap-3">
+          {projects && (
+            <button
+              type="button"
+              onClick={() => setShowMovePicker(true)}
+              className="text-xs text-muted hover:text-accent"
+            >
+              Move
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={busy}
+            className="text-xs text-muted hover:text-red-500 disabled:opacity-50"
+          >
+            Delete
+          </button>
+        </div>
       </div>
-      {error && (
+      {(error || moveError) && (
         <p className="mt-2 text-sm text-red-500" role="alert">
-          {error}
+          {error || moveError}
         </p>
+      )}
+      {showMovePicker && projects && (
+        <ProjectPicker
+          projects={projects}
+          excludedIds={new Set([record.project_id])}
+          onSelect={handleMove}
+          onClose={() => setShowMovePicker(false)}
+          title="Move record to…"
+        />
       )}
     </div>
   );

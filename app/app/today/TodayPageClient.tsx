@@ -60,6 +60,7 @@ export default function TodayPageClient({
               </Link>
               <PaTaskCard
                 task={task}
+                projects={projects}
                 onDeleted={(deletedId) => setTasks((prev) => prev.filter((t) => t.id !== deletedId))}
                 onUpdated={(updated) =>
                   setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))

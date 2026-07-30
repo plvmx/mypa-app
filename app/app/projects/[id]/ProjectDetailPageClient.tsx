@@ -384,11 +384,16 @@ export default function ProjectDetailPageClient({
             <li key={task.id}>
               <PaTaskCard
                 task={task}
+                projects={allProjects}
                 onDeleted={(deletedId) =>
                   setTasks((prev) => prev.filter((t) => t.id !== deletedId))
                 }
                 onUpdated={(updated) =>
-                  setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+                  setTasks((prev) =>
+                    updated.project_id === id
+                      ? prev.map((t) => (t.id === updated.id ? updated : t))
+                      : prev.filter((t) => t.id !== updated.id),
+                  )
                 }
               />
             </li>
@@ -402,8 +407,16 @@ export default function ProjectDetailPageClient({
             <li key={record.id}>
               <PaRecCard
                 record={record}
+                projects={allProjects}
                 onDeleted={(deletedId) =>
                   setRecords((prev) => prev.filter((r) => r.id !== deletedId))
+                }
+                onUpdated={(updated) =>
+                  setRecords((prev) =>
+                    updated.project_id === id
+                      ? prev.map((r) => (r.id === updated.id ? updated : r))
+                      : prev.filter((r) => r.id !== updated.id),
+                  )
                 }
               />
             </li>
@@ -417,9 +430,14 @@ export default function ProjectDetailPageClient({
             <li key={note.id}>
               <NoteCard
                 note={note}
+                projects={allProjects}
                 onDeleted={(deletedId) => setNotes((prev) => prev.filter((n) => n.id !== deletedId))}
                 onUpdated={(updated) =>
-                  setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
+                  setNotes((prev) =>
+                    updated.project_id === id
+                      ? prev.map((n) => (n.id === updated.id ? updated : n))
+                      : prev.filter((n) => n.id !== updated.id),
+                  )
                 }
               />
             </li>
@@ -433,6 +451,7 @@ export default function ProjectDetailPageClient({
           excludedIds={excludedIds}
           onSelect={handleMove}
           onClose={() => setShowMovePicker(false)}
+          unfiledLabel="Top level"
         />
       )}
     </div>

@@ -223,6 +223,15 @@ describe('updatePaTask', () => {
       remind_at: null,
     });
   });
+
+  it('patches project_id to move the task to another project', async () => {
+    const builder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await updatePaTask('t1', { project_id: 'p2' });
+
+    expect(builder.update).toHaveBeenCalledWith({ project_id: 'p2' });
+  });
 });
 
 describe('startTimer', () => {
