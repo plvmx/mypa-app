@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type MouseEvent } from 'react';
-import { deletePaTask, startTimer, stopTimer } from '@/lib/services/paTaskService';
+import { deletePaTask, startTimer, stopTimer, updatePaTask } from '@/lib/services/paTaskService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { formatTimestamp } from '@/lib/formatTimestamp';
 import { getTrackedSeconds, isTimerRunning, formatDuration } from '@/lib/timeTracking';
-import type { PaTask } from '@/lib/types';
+import ProjectPicker from '@/components/ProjectPicker';
+import type { PaTask, Project } from '@/lib/types';
 
 /** Due-date badge color: red once overdue, amber for today, neutral otherwise. */
 function dueBadge(dueAt: string, completed: boolean, now: Date): { label: string; className: string } {
@@ -21,13 +22,19 @@ function dueBadge(dueAt: string, completed: boolean, now: Date): { label: string
   return { label: `Due ${formatTimestamp(dueAt)}`, className: 'text-muted' };
 }
 
-/** Summary card for a task in the tasks list; links to its edit page. */
+/**
+ * Summary card for a task in the tasks list; links to its edit page. Pass
+ * `projects` to enable the "Move" action; omit it to hide Move where the
+ * project list isn't available.
+ */
 export default function PaTaskCard({
   task,
+  projects,
   onDeleted,
   onUpdated,
 }: {
   task: PaTask;
+  projects?: Project[];
   onDeleted: (id: string) => void;
   onUpdated?: (task: PaTask) => void;
 }) {
@@ -35,6 +42,8 @@ export default function PaTaskCard({
   const [error, setError] = useState('');
   const [timerBusy, setTimerBusy] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [showMovePicker, setShowMovePicker] = useState(false);
+  const [moveError, setMoveError] = useState('');
 
   const running = isTimerRunning(task.time_entries);
 
@@ -73,7 +82,20 @@ export default function PaTaskCard({
     }
   }
 
+  async function handleMove(newProjectId: string | null) {
+    setShowMovePicker(false);
+    if (newProjectId === null) return;
+    setMoveError('');
+    try {
+      const updated = await updatePaTask(task.id, { project_id: newProjectId });
+      onUpdated?.(updated);
+    } catch (err) {
+      setMoveError(getErrorMessage(err));
+    }
+  }
+
   const doneSteps = task.steps.filter((s) => s.completed).length;
+  const remainingSteps = task.steps.filter((s) => !s.completed);
   const status =
     task.completed && task.completed_at
       ? `Completed ${formatTimestamp(task.completed_at)}`
@@ -91,9 +113,20 @@ export default function PaTaskCard({
         <p className="text-sm text-muted">{status}</p>
         {badge && <p className={`mt-1 text-sm ${badge.className}`}>{badge.label}</p>}
         {task.steps.length > 0 && (
-          <p className="mt-1 text-sm">
-            {doneSteps}/{task.steps.length} steps done
-          </p>
+          <div className="mt-1 text-sm">
+            <p>
+              {doneSteps}/{task.steps.length} steps done
+            </p>
+            {remainingSteps.length > 0 && (
+              <ul className="mt-1 flex flex-col gap-0.5 text-muted">
+                {remainingSteps.map((step, i) => (
+                  <li key={i} className="truncate">
+                    ☐ {step.text}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
         {trackedSeconds > 0 && (
           <p className="mt-1 text-sm text-muted">
@@ -114,6 +147,15 @@ export default function PaTaskCard({
           >
             {running ? 'Stop timer' : 'Start timer'}
           </button>
+          {projects && (
+            <button
+              type="button"
+              onClick={() => setShowMovePicker(true)}
+              className="text-xs text-muted hover:text-accent"
+            >
+              Move
+            </button>
+          )}
           <button
             type="button"
             onClick={handleDelete}
@@ -124,10 +166,19 @@ export default function PaTaskCard({
           </button>
         </div>
       </div>
-      {error && (
+      {(error || moveError) && (
         <p className="mt-2 text-sm text-red-500" role="alert">
-          {error}
+          {error || moveError}
         </p>
+      )}
+      {showMovePicker && projects && (
+        <ProjectPicker
+          projects={projects}
+          excludedIds={new Set([task.project_id])}
+          onSelect={handleMove}
+          onClose={() => setShowMovePicker(false)}
+          title="Move task to…"
+        />
       )}
     </div>
   );

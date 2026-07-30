@@ -32,6 +32,8 @@ export interface CreatePaTaskInput {
 
 /** Fields a caller may change when updating a task. All optional. */
 export interface UpdatePaTaskInput {
+  /** Move the task to another project. Never null — a task is always filed. */
+  project_id?: string;
   title?: string;
   steps?: TaskStep[];
   started?: boolean;
@@ -108,6 +110,7 @@ export async function createPaTask(input: CreatePaTaskInput): Promise<PaTask> {
 /** Update a task and return the updated row. */
 export async function updatePaTask(id: string, input: UpdatePaTaskInput): Promise<PaTask> {
   const patch: Record<string, unknown> = {};
+  if (input.project_id !== undefined) patch.project_id = input.project_id;
   if (input.title !== undefined) {
     const title = input.title.trim();
     if (!title) throw new Error('A task needs a title');

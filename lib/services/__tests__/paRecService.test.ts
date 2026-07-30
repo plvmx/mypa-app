@@ -126,6 +126,15 @@ describe('updatePaRec', () => {
     await expect(updatePaRec('r1', { title: '  ' })).rejects.toThrow('needs a title');
     expect(mockFrom).not.toHaveBeenCalled();
   });
+
+  it('patches project_id to move the record to another project', async () => {
+    const builder = makeQueryBuilder({ data: sampleRec, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await updatePaRec('r1', { project_id: 'p2' });
+
+    expect(builder.update).toHaveBeenCalledWith({ project_id: 'p2' });
+  });
 });
 
 describe('deletePaRec', () => {

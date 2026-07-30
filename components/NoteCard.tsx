@@ -3,15 +3,22 @@
 import { useState } from 'react';
 import { deleteNote, updateNote } from '@/lib/services/noteService';
 import { getErrorMessage } from '@/lib/errorUtils';
-import type { Note } from '@/lib/types';
+import ProjectPicker from '@/components/ProjectPicker';
+import type { Note, Project } from '@/lib/types';
 
-/** Displays a single note; click to edit inline, or delete. */
+/**
+ * Displays a single note; click to edit inline, or delete. Pass `projects`
+ * to enable the "Move" action (moving to/from the unfiled inbox); omit it
+ * to hide Move where the project list isn't available.
+ */
 export default function NoteCard({
   note,
+  projects,
   onDeleted,
   onUpdated,
 }: {
   note: Note;
+  projects?: Project[];
   onDeleted: (id: string) => void;
   onUpdated?: (note: Note) => void;
 }) {
@@ -22,6 +29,20 @@ export default function NoteCard({
   const [reference, setReference] = useState(note.reference ?? '');
   const [body, setBody] = useState(note.body);
   const [saving, setSaving] = useState(false);
+
+  const [showMovePicker, setShowMovePicker] = useState(false);
+  const [moveError, setMoveError] = useState('');
+
+  async function handleMove(newProjectId: string | null) {
+    setShowMovePicker(false);
+    setMoveError('');
+    try {
+      const updated = await updateNote(note.id, { project_id: newProjectId });
+      onUpdated?.(updated);
+    } catch (err) {
+      setMoveError(getErrorMessage(err));
+    }
+  }
 
   async function handleDelete() {
     if (busy) return;
@@ -115,19 +136,40 @@ export default function NoteCard({
       </button>
       <div className="mt-3 flex items-center justify-between">
         <time className="text-xs text-muted">{created}</time>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={busy}
-          className="text-xs text-muted hover:text-red-500 disabled:opacity-50"
-        >
-          Delete
-        </button>
+        <div className="flex items-center gap-3">
+          {projects && (
+            <button
+              type="button"
+              onClick={() => setShowMovePicker(true)}
+              className="text-xs text-muted hover:text-accent"
+            >
+              Move
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={busy}
+            className="text-xs text-muted hover:text-red-500 disabled:opacity-50"
+          >
+            Delete
+          </button>
+        </div>
       </div>
-      {error && (
+      {(error || moveError) && (
         <p className="mt-2 text-sm text-red-500" role="alert">
-          {error}
+          {error || moveError}
         </p>
+      )}
+      {showMovePicker && projects && (
+        <ProjectPicker
+          projects={projects}
+          excludedIds={note.project_id ? new Set([note.project_id]) : new Set()}
+          onSelect={handleMove}
+          onClose={() => setShowMovePicker(false)}
+          title="Move note to…"
+          unfiledLabel="Inbox (unfiled)"
+        />
       )}
     </div>
   );

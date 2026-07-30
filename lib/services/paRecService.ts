@@ -29,6 +29,8 @@ export interface CreatePaRecInput {
 
 /** Fields a caller may change when updating a record. All optional. */
 export interface UpdatePaRecInput {
+  /** Move the record to another project. Never null — a record is always filed. */
+  project_id?: string;
   title?: string;
   event?: string | null;
   site?: string | null;
@@ -99,6 +101,7 @@ export async function createPaRec(input: CreatePaRecInput): Promise<PaRec> {
 /** Update a record and return the updated row. */
 export async function updatePaRec(id: string, input: UpdatePaRecInput): Promise<PaRec> {
   const patch: Record<string, unknown> = {};
+  if (input.project_id !== undefined) patch.project_id = input.project_id;
   if (input.title !== undefined) {
     const title = input.title.trim();
     if (!title) throw new Error('A record needs a title');
