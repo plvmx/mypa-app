@@ -1,10 +1,18 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { createPaRec, updatePaRec, deletePaRec, savePaRecImages } from '@/lib/services/paRecService';
+import {
+  createPaRec,
+  updatePaRec,
+  deletePaRec,
+  savePaRecImages,
+  uploadPaRecImage,
+  getPaRecImageUrl,
+  removePaRecImage,
+} from '@/lib/services/paRecService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import DynamicListInput from '@/components/DynamicListInput';
-import PaRecImagePicker from '@/components/PaRecImagePicker';
+import ImagePicker from '@/components/ImagePicker';
 import type { PaRec } from '@/lib/types';
 
 /**
@@ -183,9 +191,12 @@ export default function PaRecForm({
         />
       </div>
 
-      <PaRecImagePicker
+      <ImagePicker
         images={images}
         onChange={handleImagesChange}
+        upload={uploadPaRecImage}
+        getUrl={getPaRecImageUrl}
+        remove={removePaRecImage}
         disabled={!recordId && !title.trim()}
         disabledHint="Add a title first"
       />
