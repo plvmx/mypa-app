@@ -70,6 +70,8 @@ export interface TaskStep {
   completed: boolean;
   /** When `completed` was last set to true; null while unchecked. */
   completed_at: string | null;
+  /** Supabase Storage object paths (in the `pa-task-step-images` bucket), not URLs. */
+  images: string[];
 }
 
 /**

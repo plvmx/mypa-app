@@ -9,16 +9,24 @@ import {
   deletePaTask,
   startTimer,
   stopTimer,
+  savePaTaskSteps,
+  uploadPaTaskStepImage,
+  getPaTaskStepImageUrl,
+  removePaTaskStepImage,
 } from '@/lib/services/paTaskService';
 import type { PaTask } from '@/lib/types';
 
 vi.mock('@/lib/supabaseClient', () => ({
   supabase: {
     from: vi.fn(),
+    storage: { from: vi.fn() },
+    auth: { getUser: vi.fn() },
   },
 }));
 
 const mockFrom = vi.mocked(supabase.from) as unknown as ReturnType<typeof vi.fn>;
+const mockStorageFrom = vi.mocked(supabase.storage.from) as unknown as ReturnType<typeof vi.fn>;
+const mockGetUser = vi.mocked(supabase.auth.getUser) as unknown as ReturnType<typeof vi.fn>;
 
 const sampleTask: PaTask = {
   id: 't1',
@@ -26,8 +34,8 @@ const sampleTask: PaTask = {
   project_id: 'p1',
   title: 'Plan trip',
   steps: [
-    { text: 'Book flights', completed: true, completed_at: '2026-07-01T00:00:00Z' },
-    { text: 'Pack bags', completed: false, completed_at: null },
+    { text: 'Book flights', completed: true, completed_at: '2026-07-01T00:00:00Z', images: [] },
+    { text: 'Pack bags', completed: false, completed_at: null, images: [] },
   ],
   started: true,
   started_at: '2026-06-30T00:00:00Z',
@@ -72,6 +80,18 @@ describe('getPaTaskById', () => {
     mockFrom.mockReturnValue(makeQueryBuilder({ data: null, error: null }));
     expect(await getPaTaskById('missing')).toBeNull();
   });
+
+  it('backfills a missing images field on steps saved before it existed', async () => {
+    const legacyRow = {
+      ...sampleTask,
+      steps: [{ text: 'Book flights', completed: true, completed_at: '2026-07-01T00:00:00Z' }],
+    };
+    mockFrom.mockReturnValue(makeQueryBuilder({ data: legacyRow, error: null }));
+
+    const task = await getPaTaskById('t1');
+
+    expect(task?.steps[0].images).toEqual([]);
+  });
 });
 
 describe('createPaTask', () => {
@@ -83,8 +103,13 @@ describe('createPaTask', () => {
       project_id: 'p1',
       title: '  Plan trip  ',
       steps: [
-        { text: '  Book flights  ', completed: true, completed_at: '2026-07-01T00:00:00Z' },
-        { text: '   ', completed: false, completed_at: null },
+        {
+          text: '  Book flights  ',
+          completed: true,
+          completed_at: '2026-07-01T00:00:00Z',
+          images: [],
+        },
+        { text: '   ', completed: false, completed_at: null, images: [] },
       ],
     });
 
@@ -92,7 +117,9 @@ describe('createPaTask', () => {
       {
         project_id: 'p1',
         title: 'Plan trip',
-        steps: [{ text: 'Book flights', completed: true, completed_at: '2026-07-01T00:00:00Z' }],
+        steps: [
+          { text: 'Book flights', completed: true, completed_at: '2026-07-01T00:00:00Z', images: [] },
+        ],
         started: false,
         started_at: null,
         completed: false,
@@ -197,13 +224,26 @@ describe('updatePaTask', () => {
 
     await updatePaTask('t1', {
       steps: [
-        { text: '  a  ', completed: false, completed_at: null },
-        { text: '', completed: false, completed_at: null },
+        { text: '  a  ', completed: false, completed_at: null, images: [] },
+        { text: '', completed: false, completed_at: null, images: [] },
       ],
     });
 
     expect(builder.update).toHaveBeenCalledWith({
-      steps: [{ text: 'a', completed: false, completed_at: null }],
+      steps: [{ text: 'a', completed: false, completed_at: null, images: [] }],
+    });
+  });
+
+  it('keeps a step that has images even when its text is blank', async () => {
+    const builder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await updatePaTask('t1', {
+      steps: [{ text: '   ', completed: false, completed_at: null, images: ['u1/photo.jpg'] }],
+    });
+
+    expect(builder.update).toHaveBeenCalledWith({
+      steps: [{ text: '', completed: false, completed_at: null, images: ['u1/photo.jpg'] }],
     });
   });
 
@@ -298,5 +338,110 @@ describe('deletePaTask', () => {
     expect(mockFrom).toHaveBeenCalledWith('pa_tasks');
     expect(builder.delete).toHaveBeenCalled();
     expect(builder.eq).toHaveBeenCalledWith('id', 't1');
+  });
+
+  it("removes every step's images from storage", async () => {
+    const taskWithImages = {
+      ...sampleTask,
+      steps: [
+        { text: 'Book flights', completed: false, completed_at: null, images: ['u1/a.jpg'] },
+        { text: 'Pack bags', completed: false, completed_at: null, images: ['u1/b.jpg', 'u1/c.jpg'] },
+      ],
+    };
+    mockFrom.mockReturnValue(makeQueryBuilder({ data: taskWithImages, error: null }));
+    const remove = vi.fn().mockResolvedValue({ data: null, error: null });
+    mockStorageFrom.mockReturnValue({ remove });
+
+    await deletePaTask('t1');
+
+    expect(mockStorageFrom).toHaveBeenCalledWith('pa-task-step-images');
+    expect(remove).toHaveBeenCalledWith(['u1/a.jpg', 'u1/b.jpg', 'u1/c.jpg']);
+  });
+
+  it('skips the storage call when no step has images', async () => {
+    mockFrom.mockReturnValue(makeQueryBuilder({ data: sampleTask, error: null }));
+
+    await deletePaTask('t1');
+
+    expect(mockStorageFrom).not.toHaveBeenCalled();
+  });
+});
+
+describe('savePaTaskSteps', () => {
+  const draft = { project_id: 'p1', title: 'Plan trip' };
+
+  it('patches just the steps field on an existing task', async () => {
+    const builder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValue(builder);
+    const newSteps = [{ text: 'Book flights', completed: false, completed_at: null, images: ['u1/a.jpg'] }];
+
+    await savePaTaskSteps('t1', newSteps, draft);
+
+    expect(builder.update).toHaveBeenCalledWith({ steps: newSteps });
+    expect(builder.eq).toHaveBeenCalledWith('id', 't1');
+    expect(builder.insert).not.toHaveBeenCalled();
+  });
+
+  it('creates the task from the draft fields when it does not exist yet', async () => {
+    const builder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValue(builder);
+    const newSteps = [{ text: 'Book flights', completed: false, completed_at: null, images: ['u1/a.jpg'] }];
+
+    await savePaTaskSteps(undefined, newSteps, draft);
+
+    const inserted = builder.insert.mock.calls[0][0][0];
+    expect(inserted.project_id).toBe('p1');
+    expect(inserted.title).toBe('Plan trip');
+    expect(inserted.steps).toEqual(newSteps);
+    expect(builder.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('uploadPaTaskStepImage', () => {
+  it('uploads under the current user id and returns the storage path', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
+    const upload = vi.fn().mockResolvedValue({ data: { path: 'ignored' }, error: null });
+    mockStorageFrom.mockReturnValue({ upload });
+
+    const file = new File(['x'], 'photo.jpg', { type: 'image/jpeg' });
+    const path = await uploadPaTaskStepImage(file);
+
+    expect(mockStorageFrom).toHaveBeenCalledWith('pa-task-step-images');
+    expect(upload).toHaveBeenCalledWith(expect.stringMatching(/^u1\/.+-photo\.jpg$/), file);
+    expect(path).toMatch(/^u1\/.+-photo\.jpg$/);
+  });
+
+  it('rejects when there is no signed-in user', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    await expect(uploadPaTaskStepImage(new File(['x'], 'a.jpg'))).rejects.toThrow('signed in');
+    expect(mockStorageFrom).not.toHaveBeenCalled();
+  });
+});
+
+describe('getPaTaskStepImageUrl', () => {
+  it('returns a signed url for the given path', async () => {
+    const createSignedUrl = vi
+      .fn()
+      .mockResolvedValue({ data: { signedUrl: 'https://signed.example/a.jpg' }, error: null });
+    mockStorageFrom.mockReturnValue({ createSignedUrl });
+
+    const url = await getPaTaskStepImageUrl('u1/a.jpg');
+
+    expect(mockStorageFrom).toHaveBeenCalledWith('pa-task-step-images');
+    expect(createSignedUrl).toHaveBeenCalledWith('u1/a.jpg', 60 * 60);
+    expect(url).toBe('https://signed.example/a.jpg');
+  });
+});
+
+describe('removePaTaskStepImage', () => {
+  it('removes the given path from storage', async () => {
+    const remove = vi.fn().mockResolvedValue({ data: null, error: null });
+    mockStorageFrom.mockReturnValue({ remove });
+
+    await removePaTaskStepImage('u1/a.jpg');
+
+    expect(mockStorageFrom).toHaveBeenCalledWith('pa-task-step-images');
+    expect(remove).toHaveBeenCalledWith(['u1/a.jpg']);
   });
 });

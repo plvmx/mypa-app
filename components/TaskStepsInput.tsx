@@ -2,23 +2,44 @@
 
 import { useEffect, useRef } from 'react';
 import { formatTimestamp } from '@/lib/formatTimestamp';
+import ImagePicker from '@/components/ImagePicker';
+import {
+  uploadPaTaskStepImage,
+  getPaTaskStepImageUrl,
+  removePaTaskStepImage,
+} from '@/lib/services/paTaskService';
 import type { TaskStep } from '@/lib/types';
 
 /**
- * A growable list of steps for a Task — each with its own text and a
- * Completed checkbox. Mirrors DynamicListInput's add/remove ("+"/"×")
- * behaviour: always renders at least one row, and only non-last rows can be
- * removed. Checking a step's box stamps it with the current time; unchecking
- * clears the timestamp.
+ * A growable list of steps for a Task — each with its own text, a Completed
+ * checkbox, and an image picker. Mirrors DynamicListInput's add/remove
+ * ("+"/"×") behaviour: always renders at least one row, and only non-last
+ * rows can be removed. Checking a step's box stamps it with the current
+ * time; unchecking clears the timestamp.
+ *
+ * Text/checkbox/add/remove edits go through `onChange` and stay local until
+ * the form's Save button is pressed, like every other field. A step's images
+ * are different: `onImagesChange` fires separately so the parent can persist
+ * them immediately (see PaTaskForm) — an upload that already landed in
+ * Storage shouldn't be lost if the page is torn down before Save.
  */
 export default function TaskStepsInput({
   values,
   onChange,
+  onImagesChange,
+  imagesDisabled,
+  imagesDisabledHint,
 }: {
   values: TaskStep[];
   onChange: (values: TaskStep[]) => void;
+  onImagesChange: (index: number, images: string[]) => void;
+  /** Block adding new step images (e.g. a new task needs a title before one exists to attach to). Existing images can still be removed. */
+  imagesDisabled?: boolean;
+  /** Shown next to the button while `imagesDisabled`. */
+  imagesDisabledHint?: string;
 }) {
-  const rows = values.length > 0 ? values : [{ text: '', completed: false, completed_at: null }];
+  const rows =
+    values.length > 0 ? values : [{ text: '', completed: false, completed_at: null, images: [] }];
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const shouldFocusLast = useRef(false);
 
@@ -47,7 +68,7 @@ export default function TaskStepsInput({
 
   function handleAdd() {
     shouldFocusLast.current = true;
-    onChange([...rows, { text: '', completed: false, completed_at: null }]);
+    onChange([...rows, { text: '', completed: false, completed_at: null, images: [] }]);
   }
 
   function handleRemove(index: number) {
@@ -104,6 +125,18 @@ export default function TaskStepsInput({
                   Completed {formatTimestamp(step.completed_at)}
                 </p>
               )}
+              <div className="pl-8">
+                <ImagePicker
+                  images={step.images}
+                  onChange={(images) => onImagesChange(index, images)}
+                  upload={uploadPaTaskStepImage}
+                  getUrl={getPaTaskStepImageUrl}
+                  remove={removePaTaskStepImage}
+                  label=""
+                  disabled={imagesDisabled}
+                  disabledHint={imagesDisabledHint}
+                />
+              </div>
             </div>
           );
         })}

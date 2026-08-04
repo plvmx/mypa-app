@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useState, type FormEvent } from 'react';
-import { createPaTask, updatePaTask, startTimer, stopTimer } from '@/lib/services/paTaskService';
+import {
+  createPaTask,
+  updatePaTask,
+  deletePaTask,
+  startTimer,
+  stopTimer,
+  savePaTaskSteps,
+} from '@/lib/services/paTaskService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { formatTimestamp } from '@/lib/formatTimestamp';
 import { getTrackedSeconds, isTimerRunning, formatDuration } from '@/lib/timeTracking';
@@ -43,8 +50,15 @@ export default function PaTaskForm({
 }) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [steps, setSteps] = useState<TaskStep[]>(
-    initial?.steps.length ? initial.steps : [{ text: '', completed: false, completed_at: null }],
+    initial?.steps.length
+      ? initial.steps
+      : [{ text: '', completed: false, completed_at: null, images: [] }],
   );
+  // Tracks the task steps' images get attached to. Starts as `initial?.id`
+  // (editing); for a new task it's set as soon as the first step image
+  // forces an early save (see handleStepImagesChange) — after that,
+  // handleSubmit updates rather than creates.
+  const [taskId, setTaskId] = useState(initial?.id);
   const [started, setStarted] = useState(initial?.started ?? false);
   const [startedAt, setStartedAt] = useState<string | null>(initial?.started_at ?? null);
   const [completed, setCompleted] = useState(initial?.completed ?? false);
@@ -99,8 +113,8 @@ export default function PaTaskForm({
     setError('');
     try {
       const fields = { title, steps, started, completed, due_at: dueAt, remind_at: remindAt };
-      const task = initial
-        ? await updatePaTask(initial.id, fields)
+      const task = taskId
+        ? await updatePaTask(taskId, fields)
         : await createPaTask({ project_id: projectId, ...fields });
       onSaved(task);
     } catch (err) {
@@ -108,6 +122,49 @@ export default function PaTaskForm({
     } finally {
       setSaving(false);
     }
+  }
+
+  /**
+   * Attach a step's image-array change to the task right away rather than
+   * waiting for Save — an upload that already landed in Storage shouldn't be
+   * lost if the page gets torn down (e.g. the OS reclaiming a backgrounded
+   * tab/PWA while the native camera is in the foreground) before Save is
+   * pressed. For a brand-new task this creates it early, using whatever
+   * fields are filled in so far; handleSubmit then updates it instead.
+   */
+  async function handleStepImagesChange(index: number, images: string[]) {
+    const nextSteps = steps.map((step, i) => (i === index ? { ...step, images } : step));
+    setSteps(nextSteps);
+    setError('');
+    try {
+      const task = await savePaTaskSteps(taskId, nextSteps, {
+        project_id: projectId,
+        title,
+        due_at: dueAt,
+        remind_at: remindAt,
+      });
+      if (!taskId) setTaskId(task.id);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  }
+
+  /**
+   * If adding a step image auto-created a draft task (see
+   * handleStepImagesChange) and the user then cancels, remove that draft
+   * instead of leaving an orphaned task behind — `initial` being unset is
+   * what marks it as one created by this session rather than one being
+   * edited.
+   */
+  async function handleCancel() {
+    if (!initial && taskId) {
+      try {
+        await deletePaTask(taskId);
+      } catch {
+        // best-effort cleanup — nothing the user can act on here
+      }
+    }
+    onCancel?.();
   }
 
   return (
@@ -231,7 +288,13 @@ export default function PaTaskForm({
         </div>
       </div>
 
-      <TaskStepsInput values={steps} onChange={setSteps} />
+      <TaskStepsInput
+        values={steps}
+        onChange={setSteps}
+        onImagesChange={handleStepImagesChange}
+        imagesDisabled={!taskId && !title.trim()}
+        imagesDisabledHint="Add a task title first"
+      />
 
       {error && (
         <p className="text-sm text-red-500" role="alert">
@@ -241,7 +304,7 @@ export default function PaTaskForm({
 
       <div className="flex justify-end gap-3">
         {onCancel && (
-          <button type="button" onClick={onCancel} className="text-sm text-muted">
+          <button type="button" onClick={handleCancel} className="text-sm text-muted">
             Cancel
           </button>
         )}

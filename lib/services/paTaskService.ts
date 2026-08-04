@@ -18,6 +18,7 @@ type Client = typeof supabase;
  */
 
 const TABLE = 'pa_tasks';
+const STEP_IMAGE_BUCKET = 'pa-task-step-images';
 
 /** Fields a caller may set when creating a task. */
 export interface CreatePaTaskInput {
@@ -42,11 +43,26 @@ export interface UpdatePaTaskInput {
   remind_at?: string | null;
 }
 
-/** Trim step text and drop steps left blank, preserving order and completion state. */
+/** Backfill `images` on rows written before that field existed. */
+function normalizeStep(step: TaskStep): TaskStep {
+  return { ...step, images: step.images ?? [] };
+}
+
+/** Apply row-shape normalization (e.g. missing `images`) to a fetched task. */
+function normalizeTask(task: PaTask): PaTask {
+  return { ...task, steps: task.steps.map(normalizeStep) };
+}
+
+/**
+ * Trim step text and drop steps left both blank and imageless, preserving
+ * order and completion state. A step with images but no text is kept —
+ * otherwise a step created purely to hold an in-progress photo (added before
+ * its caption was typed) would silently vanish along with its images.
+ */
 function cleanSteps(steps: TaskStep[]): TaskStep[] {
   return steps
-    .map((step) => ({ ...step, text: step.text.trim() }))
-    .filter((step) => step.text.length > 0);
+    .map((step) => ({ ...step, text: step.text.trim(), images: step.images ?? [] }))
+    .filter((step) => step.text.length > 0 || step.images.length > 0);
 }
 
 /**
@@ -63,7 +79,7 @@ export async function getPaTasks(projectId?: string, client: Client = supabase):
   if (projectId !== undefined) query = query.eq('project_id', projectId);
   const { data, error } = await query;
   if (error) throw error;
-  return (data || []) as PaTask[];
+  return ((data || []) as PaTask[]).map(normalizeTask);
 }
 
 /** Fetch a single task by id, or null if it does not exist / is not visible. */
@@ -74,7 +90,7 @@ export async function getPaTaskById(id: string): Promise<PaTask | null> {
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
-  return (data as PaTask) ?? null;
+  return data ? normalizeTask(data as PaTask) : null;
 }
 
 /** Create a task and return the inserted row. */
@@ -104,7 +120,7 @@ export async function createPaTask(input: CreatePaTaskInput): Promise<PaTask> {
     .select()
     .single();
   if (error) throw error;
-  return data as PaTask;
+  return normalizeTask(data as PaTask);
 }
 
 /** Update a task and return the updated row. */
@@ -142,7 +158,7 @@ export async function updatePaTask(id: string, input: UpdatePaTaskInput): Promis
     .select()
     .single();
   if (error) throw error;
-  return data as PaTask;
+  return normalizeTask(data as PaTask);
 }
 
 /**
@@ -167,7 +183,7 @@ export async function startTimer(id: string): Promise<PaTask> {
     .select()
     .single();
   if (error) throw error;
-  return data as PaTask;
+  return normalizeTask(data as PaTask);
 }
 
 /** Stop the currently-running time-tracking session on a task. */
@@ -188,11 +204,70 @@ export async function stopTimer(id: string): Promise<PaTask> {
     .select()
     .single();
   if (error) throw error;
-  return data as PaTask;
+  return normalizeTask(data as PaTask);
 }
 
-/** Permanently delete a task. */
+/**
+ * Persist a `steps` change immediately, without waiting for the rest of the
+ * task's fields to be saved via the form's Save button. Uploads land in
+ * Storage as soon as they finish, but on mobile the tab/PWA can be torn down
+ * by the OS while the native camera/photo picker is in the foreground —
+ * losing any unsaved in-memory form state before Save is ever pressed. Since
+ * the upload itself has already completed by then, attaching it to the task
+ * right away (rather than at Save time) is what actually survives that. If
+ * the task doesn't exist yet (a still-unsaved new task), it's created now
+ * using `draft`'s fields plus `steps`.
+ */
+export async function savePaTaskSteps(
+  existingId: string | undefined,
+  steps: TaskStep[],
+  draft: CreatePaTaskInput,
+): Promise<PaTask> {
+  if (existingId) return updatePaTask(existingId, { steps });
+  return createPaTask({ ...draft, steps });
+}
+
+/**
+ * Upload an image for a task step and return its Storage object path.
+ * Doesn't attach it to a step — callers append the returned path to that
+ * step's local `images` array and persist it via `savePaTaskSteps`/`updatePaTask`.
+ */
+export async function uploadPaTaskStepImage(file: File): Promise<string> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('You must be signed in to upload an image');
+
+  const path = `${user.id}/${crypto.randomUUID()}-${file.name}`;
+  const { error } = await supabase.storage.from(STEP_IMAGE_BUCKET).upload(path, file);
+  if (error) throw error;
+  return path;
+}
+
+/** Get a temporary signed URL for rendering a task-step image by its Storage path. */
+export async function getPaTaskStepImageUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(STEP_IMAGE_BUCKET)
+    .createSignedUrl(path, 60 * 60);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+/** Permanently delete a single task-step image from Storage by its path. */
+export async function removePaTaskStepImage(path: string): Promise<void> {
+  const { error } = await supabase.storage.from(STEP_IMAGE_BUCKET).remove([path]);
+  if (error) throw error;
+}
+
+/** Permanently delete a task and best-effort remove all its steps' images from Storage. */
 export async function deletePaTask(id: string): Promise<void> {
+  const existing = await getPaTaskById(id);
+
   const { error } = await supabase.from(TABLE).delete().eq('id', id);
   if (error) throw error;
+
+  const imagePaths = existing?.steps.flatMap((step) => step.images) ?? [];
+  if (imagePaths.length > 0) {
+    await supabase.storage.from(STEP_IMAGE_BUCKET).remove(imagePaths);
+  }
 }
