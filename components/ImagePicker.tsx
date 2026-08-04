@@ -3,6 +3,35 @@
 import { useEffect, useRef, useState } from 'react';
 import { getErrorMessage } from '@/lib/errorUtils';
 
+/** Full-screen overlay showing one image at full size; tapping anywhere (or Escape) closes it. */
+function ExpandedImage({ url, onClose }: { url: string; onClose: () => void }) {
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg text-white"
+      >
+        ×
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="" className="max-h-full max-w-full rounded-lg object-contain" />
+    </div>
+  );
+}
+
 /**
  * Reusable image field: a button that opens the device's photo picker
  * (gallery/camera), uploads each selection immediately via the injected
@@ -36,6 +65,7 @@ export default function ImagePicker({
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [expandedPath, setExpandedPath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -90,8 +120,15 @@ export default function ImagePicker({
           {images.map((path) => (
             <div key={path} className="relative aspect-square overflow-hidden rounded-xl border border-border bg-card">
               {urls[path] && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={urls[path]} alt="" className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setExpandedPath(path)}
+                  aria-label="Expand image"
+                  className="block h-full w-full"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={urls[path]} alt="" className="h-full w-full object-cover" />
+                </button>
               )}
               <button
                 type="button"
@@ -104,6 +141,10 @@ export default function ImagePicker({
             </div>
           ))}
         </div>
+      )}
+
+      {expandedPath && urls[expandedPath] && (
+        <ExpandedImage url={urls[expandedPath]} onClose={() => setExpandedPath(null)} />
       )}
 
       <input
