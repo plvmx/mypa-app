@@ -124,6 +124,26 @@ export async function updatePaRec(id: string, input: UpdatePaRecInput): Promise<
   return data as PaRec;
 }
 
+/**
+ * Persist an image-array change immediately, without waiting for the rest of
+ * the record's fields to be saved via the form's Save button. Uploads land in
+ * Storage as soon as they finish, but on mobile the tab/PWA can be torn down
+ * by the OS while the native camera/photo picker is in the foreground —
+ * losing any unsaved in-memory form state before Save is ever pressed. Since
+ * the upload itself has already completed by then, attaching it to the
+ * record right away (rather than at Save time) is what actually survives
+ * that. If the record doesn't exist yet (a still-unsaved new record), it's
+ * created now using `draft`'s fields plus `images`.
+ */
+export async function savePaRecImages(
+  existingId: string | undefined,
+  images: string[],
+  draft: CreatePaRecInput,
+): Promise<PaRec> {
+  if (existingId) return updatePaRec(existingId, { images });
+  return createPaRec({ ...draft, images });
+}
+
 /** Permanently delete a record and best-effort remove its images from Storage. */
 export async function deletePaRec(id: string): Promise<void> {
   const existing = await getPaRecById(id);

@@ -14,9 +14,15 @@ import { getErrorMessage } from '@/lib/errorUtils';
 export default function PaRecImagePicker({
   images,
   onChange,
+  disabled,
+  disabledHint,
 }: {
   images: string[];
   onChange: (images: string[]) => void;
+  /** Block adding new images (e.g. a new record needs a title before one exists to attach to). Existing images can still be removed. */
+  disabled?: boolean;
+  /** Shown next to the button while `disabled`. */
+  disabledHint?: string;
 }) {
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
@@ -99,14 +105,17 @@ export default function PaRecImagePicker({
         className="hidden"
         onChange={(e) => handleFilesSelected(e.target.files)}
       />
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={uploading}
-        className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-muted hover:text-accent disabled:opacity-50"
-      >
-        {uploading ? 'Uploading…' : '+ Add image'}
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading || disabled}
+          className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-muted hover:text-accent disabled:opacity-50"
+        >
+          {uploading ? 'Uploading…' : '+ Add image'}
+        </button>
+        {disabled && disabledHint && <span className="text-xs text-muted">{disabledHint}</span>}
+      </div>
 
       {error && (
         <p className="mt-2 text-sm text-red-500" role="alert">

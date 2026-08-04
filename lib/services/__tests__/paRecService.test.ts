@@ -10,6 +10,7 @@ import {
   uploadPaRecImage,
   getPaRecImageUrl,
   removePaRecImage,
+  savePaRecImages,
 } from '@/lib/services/paRecService';
 import type { PaRec } from '@/lib/types';
 
@@ -134,6 +135,50 @@ describe('updatePaRec', () => {
     await updatePaRec('r1', { project_id: 'p2' });
 
     expect(builder.update).toHaveBeenCalledWith({ project_id: 'p2' });
+  });
+});
+
+describe('savePaRecImages', () => {
+  const draft = {
+    project_id: 'p1',
+    title: 'Talk notes',
+    event: 'Conference',
+    site: 'example.com',
+    references: ['https://example.com'],
+    points: ['first point'],
+    key_learnings: 'Learned things',
+  };
+
+  it('patches just the images field on an existing record', async () => {
+    const builder = makeQueryBuilder({ data: sampleRec, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await savePaRecImages('r1', ['u1/new.jpg'], draft);
+
+    expect(builder.update).toHaveBeenCalledWith({ images: ['u1/new.jpg'] });
+    expect(builder.eq).toHaveBeenCalledWith('id', 'r1');
+    expect(builder.insert).not.toHaveBeenCalled();
+  });
+
+  it('creates the record from the draft fields when it does not exist yet', async () => {
+    const builder = makeQueryBuilder({ data: sampleRec, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await savePaRecImages(undefined, ['u1/new.jpg'], draft);
+
+    expect(builder.insert).toHaveBeenCalledWith([
+      {
+        project_id: 'p1',
+        title: 'Talk notes',
+        event: 'Conference',
+        site: 'example.com',
+        references: ['https://example.com'],
+        points: ['first point'],
+        key_learnings: 'Learned things',
+        images: ['u1/new.jpg'],
+      },
+    ]);
+    expect(builder.update).not.toHaveBeenCalled();
   });
 });
 
