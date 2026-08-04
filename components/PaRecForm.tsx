@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { createPaRec, updatePaRec } from '@/lib/services/paRecService';
+import { createPaRec, updatePaRec, deletePaRec, savePaRecImages } from '@/lib/services/paRecService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import DynamicListInput from '@/components/DynamicListInput';
 import PaRecImagePicker from '@/components/PaRecImagePicker';
@@ -40,6 +40,10 @@ export default function PaRecForm({
   );
   const [keyLearnings, setKeyLearnings] = useState(initial?.key_learnings ?? '');
   const [images, setImages] = useState<string[]>(initial?.images ?? []);
+  // Tracks the record images get attached to. Starts as `initial?.id` (editing);
+  // for a new record it's set as soon as the first image forces an early save
+  // (see handleImagesChange) — after that, handleSubmit updates rather than creates.
+  const [recordId, setRecordId] = useState(initial?.id);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -59,8 +63,8 @@ export default function PaRecForm({
         key_learnings: keyLearnings,
         images,
       };
-      const rec = initial
-        ? await updatePaRec(initial.id, fields)
+      const rec = recordId
+        ? await updatePaRec(recordId, fields)
         : await createPaRec({ project_id: projectId, ...fields });
       onSaved(rec);
     } catch (err) {
@@ -68,6 +72,50 @@ export default function PaRecForm({
     } finally {
       setSaving(false);
     }
+  }
+
+  /**
+   * Attach an image-array change to the record right away rather than
+   * waiting for Save — an upload that already landed in Storage shouldn't be
+   * lost if the page gets torn down (e.g. the OS reclaiming a backgrounded
+   * tab/PWA while the native camera is in the foreground) before Save is
+   * pressed. For a brand-new record this creates it early, using whatever
+   * fields are filled in so far; handleSubmit then updates it instead.
+   */
+  async function handleImagesChange(newImages: string[]) {
+    setImages(newImages);
+    setError('');
+    try {
+      const rec = await savePaRecImages(recordId, newImages, {
+        project_id: projectId,
+        title,
+        event,
+        site,
+        references,
+        points,
+        key_learnings: keyLearnings,
+      });
+      if (!recordId) setRecordId(rec.id);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  }
+
+  /**
+   * If adding an image auto-created a draft record (see handleImagesChange)
+   * and the user then cancels, remove that draft instead of leaving an
+   * orphaned record behind — `initial` being unset is what marks it as one
+   * created by this session rather than one being edited.
+   */
+  async function handleCancel() {
+    if (!initial && recordId) {
+      try {
+        await deletePaRec(recordId);
+      } catch {
+        // best-effort cleanup — nothing the user can act on here
+      }
+    }
+    onCancel?.();
   }
 
   return (
@@ -135,7 +183,12 @@ export default function PaRecForm({
         />
       </div>
 
-      <PaRecImagePicker images={images} onChange={setImages} />
+      <PaRecImagePicker
+        images={images}
+        onChange={handleImagesChange}
+        disabled={!recordId && !title.trim()}
+        disabledHint="Add a title first"
+      />
 
       {error && (
         <p className="text-sm text-red-500" role="alert">
@@ -145,7 +198,7 @@ export default function PaRecForm({
 
       <div className="flex justify-end gap-3">
         {onCancel && (
-          <button type="button" onClick={onCancel} className="text-sm text-muted">
+          <button type="button" onClick={handleCancel} className="text-sm text-muted">
             Cancel
           </button>
         )}
