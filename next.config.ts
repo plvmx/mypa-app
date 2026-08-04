@@ -20,8 +20,10 @@ const securityHeaders = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      // data: for inline images / manifest icons.
-      "img-src 'self' data: blob:",
+      // data: for inline images / manifest icons; Supabase Storage for
+      // record/task-step image thumbnails, served from signed URLs on
+      // *.supabase.co rather than this origin.
+      "img-src 'self' data: blob: https://*.supabase.co",
       // Supabase API + realtime WebSocket connections
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
       "frame-ancestors 'none'",
