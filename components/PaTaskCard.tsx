@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { deletePaTask, updatePaTask } from '@/lib/services/paTaskService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { formatTimestamp } from '@/lib/formatTimestamp';
@@ -24,16 +24,21 @@ function dueBadge(dueAt: string, completed: boolean, now: Date): { label: string
 /**
  * Summary card for a task in the tasks list; links to its edit page. Pass
  * `projects` to enable the "Move" action; omit it to hide Move where the
- * project list isn't available.
+ * project list isn't available. Pass `dragHandle` (a ready-made grip button
+ * with its drag listeners already attached — see SortableTaskItem) to render
+ * it beside the title without this component knowing anything about drag
+ * libraries.
  */
 export default function PaTaskCard({
   task,
   projects,
+  dragHandle,
   onDeleted,
   onUpdated,
 }: {
   task: PaTask;
   projects?: Project[];
+  dragHandle?: ReactNode;
   onDeleted: (id: string) => void;
   onUpdated?: (task: PaTask) => void;
 }) {
@@ -68,8 +73,8 @@ export default function PaTaskCard({
     }
   }
 
-  const doneSteps = task.steps.filter((s) => s.completed).length;
-  const remainingSteps = task.steps.filter((s) => !s.completed);
+  const openSteps = task.steps.filter((s) => !s.completed);
+  const closedSteps = task.steps.filter((s) => s.completed);
   const status =
     task.completed && task.completed_at
       ? `Completed ${formatTimestamp(task.completed_at)}`
@@ -81,54 +86,74 @@ export default function PaTaskCard({
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
-      <Link href={`/app/projects/${task.project_id}/tasks/${task.id}`} className="block">
-        <h3 className="font-medium">{task.title}</h3>
-        <p className="text-sm text-muted">{status}</p>
-        {badge && <p className={`mt-1 text-sm ${badge.className}`}>{badge.label}</p>}
-        {task.steps.length > 0 && (
-          <div className="mt-1 text-sm">
-            <p>
-              {doneSteps}/{task.steps.length} steps done
-            </p>
-            {remainingSteps.length > 0 && (
-              <ul className="mt-1 flex flex-col gap-0.5 text-muted">
-                {remainingSteps.map((step, i) => (
-                  <li key={i} className="truncate">
-                    ☐ {step.text}
-                  </li>
-                ))}
-              </ul>
+      <div className="flex items-start gap-2">
+        {dragHandle}
+        <div className="min-w-0 flex-1">
+          <Link href={`/app/projects/${task.project_id}/tasks/${task.id}`} className="block">
+            <h3 className="font-medium">{task.title}</h3>
+            <p className="text-sm text-muted">{status}</p>
+            {badge && <p className={`mt-1 text-sm ${badge.className}`}>{badge.label}</p>}
+            {task.steps.length > 0 && (
+              <div className="mt-1 text-sm">
+                <p className="text-muted">
+                  {closedSteps.length}/{task.steps.length} steps done
+                </p>
+                <div
+                  className={`mt-1 grid gap-2 ${
+                    openSteps.length > 0 && closedSteps.length > 0 ? 'grid-cols-2' : 'grid-cols-1'
+                  }`}
+                >
+                  {openSteps.length > 0 && (
+                    <ul className="flex flex-col gap-0.5 text-muted">
+                      {openSteps.map((step, i) => (
+                        <li key={i} className="truncate">
+                          ☐ {step.text}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {closedSteps.length > 0 && (
+                    <ul className="flex flex-col gap-0.5 rounded-lg bg-yellow-100 p-1.5 text-muted dark:bg-yellow-900/30">
+                      {closedSteps.map((step, i) => (
+                        <li key={i} className="truncate line-through">
+                          ☑ {step.text}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
             )}
+          </Link>
+          <div className="mt-3 flex items-center justify-between">
+            <time className="text-xs text-muted">{formatTimestamp(task.created_at)}</time>
+            <div className="flex items-center gap-3">
+              {projects && (
+                <button
+                  type="button"
+                  onClick={() => setShowMovePicker(true)}
+                  className="text-xs text-muted hover:text-accent"
+                >
+                  Move
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={busy}
+                className="text-xs text-muted hover:text-red-500 disabled:opacity-50"
+              >
+                Delete
+              </button>
+            </div>
           </div>
-        )}
-      </Link>
-      <div className="mt-3 flex items-center justify-between">
-        <time className="text-xs text-muted">{formatTimestamp(task.created_at)}</time>
-        <div className="flex items-center gap-3">
-          {projects && (
-            <button
-              type="button"
-              onClick={() => setShowMovePicker(true)}
-              className="text-xs text-muted hover:text-accent"
-            >
-              Move
-            </button>
+          {(error || moveError) && (
+            <p className="mt-2 text-sm text-red-500" role="alert">
+              {error || moveError}
+            </p>
           )}
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={busy}
-            className="text-xs text-muted hover:text-red-500 disabled:opacity-50"
-          >
-            Delete
-          </button>
         </div>
       </div>
-      {(error || moveError) && (
-        <p className="mt-2 text-sm text-red-500" role="alert">
-          {error || moveError}
-        </p>
-      )}
       {showMovePicker && projects && (
         <ProjectPicker
           projects={projects}

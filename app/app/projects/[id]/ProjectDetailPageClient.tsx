@@ -4,20 +4,31 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import {
   createProject,
   updateProject,
   deleteProject,
   moveProject,
 } from '@/lib/services/projectService';
+import { updatePaTask } from '@/lib/services/paTaskService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { formatTimestamp } from '@/lib/formatTimestamp';
+import { computeReorderPosition } from '@/lib/taskOrder';
 import { buildProjectTree, getAncestors, getDescendantIds, resolveProjectColor } from '@/lib/projectTree';
 import ProjectPicker from '@/components/ProjectPicker';
 import ColorPicker from '@/components/ColorPicker';
 import ProjectTree from '@/components/ProjectTree';
 import NoteCard from '@/components/NoteCard';
 import PaRecCard from '@/components/PaRecCard';
-import PaTaskCard from '@/components/PaTaskCard';
+import SortableTaskItem from '@/components/SortableTaskItem';
 import type { Project, Note, PaRec, PaTask } from '@/lib/types';
 
 /** Section label with a show/hide toggle (with count) and a "new" link, used for Tasks/Records/Notes. */
@@ -91,6 +102,7 @@ export default function ProjectDetailPageClient({
   const [records, setRecords] = useState<PaRec[]>(initialRecords);
   const [tasks, setTasks] = useState<PaTask[]>(initialTasks);
   const [error, setError] = useState('');
+  const taskDragSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const [subTitle, setSubTitle] = useState('');
   const [creatingSub, setCreatingSub] = useState(false);
@@ -191,14 +203,8 @@ export default function ProjectDetailPageClient({
     );
   }
 
-  const sortedTasks = [...tasks].sort((a, b) => {
-    if (!a.due_at && !b.due_at) return 0;
-    if (!a.due_at) return 1;
-    if (!b.due_at) return -1;
-    return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
-  });
-  const openTasks = sortedTasks.filter((t) => !t.completed);
-  const completedTasks = sortedTasks
+  const openTasks = tasks.filter((t) => !t.completed).sort((a, b) => a.position - b.position);
+  const completedTasks = tasks
     .filter((t) => t.completed)
     .sort((a, b) => {
       if (!a.completed_at && !b.completed_at) return 0;
@@ -206,6 +212,26 @@ export default function ProjectDetailPageClient({
       if (!b.completed_at) return -1;
       return new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime();
     });
+
+  /** Reorder an open task by dragging it to a new spot; only the moved task's `position` changes. */
+  async function handleTaskDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = openTasks.findIndex((t) => t.id === active.id);
+    const newIndex = openTasks.findIndex((t) => t.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(openTasks, oldIndex, newIndex);
+    const movedTask = reordered[newIndex];
+    const position = computeReorderPosition(reordered[newIndex - 1]?.position, reordered[newIndex + 1]?.position);
+
+    setTasks((prev) => prev.map((t) => (t.id === movedTask.id ? { ...t, position } : t)));
+    try {
+      await updatePaTask(movedTask.id, { position });
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  }
 
   const ancestors = getAncestors(allProjects, id);
   const descendantIds = getDescendantIds(allProjects, id);
@@ -389,30 +415,37 @@ export default function ProjectDetailPageClient({
       </div>
 
       {tasks.length > 0 && showTasks && (
-        <div className="mb-4 grid grid-cols-[3fr_2fr] items-start gap-3">
-          <ul className="flex flex-col gap-2">
-            {openTasks.length === 0 && (
-              <li className="text-sm text-muted">No open tasks.</li>
-            )}
-            {openTasks.map((task) => (
-              <li key={task.id}>
-                <PaTaskCard
-                  task={task}
-                  projects={allProjects}
-                  onDeleted={(deletedId) =>
-                    setTasks((prev) => prev.filter((t) => t.id !== deletedId))
-                  }
-                  onUpdated={(updated) =>
-                    setTasks((prev) =>
-                      updated.project_id === id
-                        ? prev.map((t) => (t.id === updated.id ? updated : t))
-                        : prev.filter((t) => t.id !== updated.id),
-                    )
-                  }
-                />
-              </li>
-            ))}
-          </ul>
+        <div className="mb-4 flex flex-col gap-4">
+          <DndContext
+            sensors={taskDragSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleTaskDragEnd}
+          >
+            <SortableContext items={openTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+              <ul className="flex flex-col gap-2">
+                {openTasks.length === 0 && (
+                  <li className="text-sm text-muted">No open tasks.</li>
+                )}
+                {openTasks.map((task) => (
+                  <SortableTaskItem
+                    key={task.id}
+                    task={task}
+                    projects={allProjects}
+                    onDeleted={(deletedId) =>
+                      setTasks((prev) => prev.filter((t) => t.id !== deletedId))
+                    }
+                    onUpdated={(updated) =>
+                      setTasks((prev) =>
+                        updated.project_id === id
+                          ? prev.map((t) => (t.id === updated.id ? updated : t))
+                          : prev.filter((t) => t.id !== updated.id),
+                      )
+                    }
+                  />
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
 
           <div className="rounded-2xl bg-border/30 p-3">
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">

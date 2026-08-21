@@ -41,6 +41,7 @@ const sampleTask: PaTask = {
   completed_at: null,
   due_at: null,
   remind_at: null,
+  position: 100,
   created_at: '2026-06-29T00:00:00Z',
   updated_at: '2026-06-30T00:00:00Z',
 };
@@ -123,8 +124,30 @@ describe('createPaTask', () => {
         completed_at: null,
         due_at: null,
         remind_at: null,
+        position: expect.any(Number),
       },
     ]);
+  });
+
+  it('defaults position to now (end of the list) when not given', async () => {
+    const builder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValue(builder);
+    const before = Date.now();
+
+    await createPaTask({ project_id: 'p1', title: 'Quick task' });
+
+    const inserted = builder.insert.mock.calls[0][0][0];
+    expect(inserted.position).toBeGreaterThanOrEqual(before);
+  });
+
+  it('passes an explicit position through when provided', async () => {
+    const builder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await createPaTask({ project_id: 'p1', title: 'Quick task', position: 42 });
+
+    const inserted = builder.insert.mock.calls[0][0][0];
+    expect(inserted.position).toBe(42);
   });
 
   it('passes due_at and remind_at through when provided', async () => {
@@ -268,6 +291,15 @@ describe('updatePaTask', () => {
     await updatePaTask('t1', { project_id: 'p2' });
 
     expect(builder.update).toHaveBeenCalledWith({ project_id: 'p2' });
+  });
+
+  it('patches position when reordering', async () => {
+    const builder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await updatePaTask('t1', { position: 12.5 });
+
+    expect(builder.update).toHaveBeenCalledWith({ position: 12.5 });
   });
 });
 
