@@ -10,6 +10,7 @@ import {
   moveProject,
 } from '@/lib/services/projectService';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { formatTimestamp } from '@/lib/formatTimestamp';
 import { buildProjectTree, getAncestors, getDescendantIds, resolveProjectColor } from '@/lib/projectTree';
 import ProjectPicker from '@/components/ProjectPicker';
 import ColorPicker from '@/components/ColorPicker';
@@ -196,6 +197,15 @@ export default function ProjectDetailPageClient({
     if (!b.due_at) return -1;
     return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
   });
+  const openTasks = sortedTasks.filter((t) => !t.completed);
+  const completedTasks = sortedTasks
+    .filter((t) => t.completed)
+    .sort((a, b) => {
+      if (!a.completed_at && !b.completed_at) return 0;
+      if (!a.completed_at) return 1;
+      if (!b.completed_at) return -1;
+      return new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime();
+    });
 
   const ancestors = getAncestors(allProjects, id);
   const descendantIds = getDescendantIds(allProjects, id);
@@ -379,26 +389,56 @@ export default function ProjectDetailPageClient({
       </div>
 
       {tasks.length > 0 && showTasks && (
-        <ul className="mb-4 flex flex-col gap-2">
-          {sortedTasks.map((task) => (
-            <li key={task.id}>
-              <PaTaskCard
-                task={task}
-                projects={allProjects}
-                onDeleted={(deletedId) =>
-                  setTasks((prev) => prev.filter((t) => t.id !== deletedId))
-                }
-                onUpdated={(updated) =>
-                  setTasks((prev) =>
-                    updated.project_id === id
-                      ? prev.map((t) => (t.id === updated.id ? updated : t))
-                      : prev.filter((t) => t.id !== updated.id),
-                  )
-                }
-              />
-            </li>
-          ))}
-        </ul>
+        <div className="mb-4 grid grid-cols-[3fr_2fr] items-start gap-3">
+          <ul className="flex flex-col gap-2">
+            {openTasks.length === 0 && (
+              <li className="text-sm text-muted">No open tasks.</li>
+            )}
+            {openTasks.map((task) => (
+              <li key={task.id}>
+                <PaTaskCard
+                  task={task}
+                  projects={allProjects}
+                  onDeleted={(deletedId) =>
+                    setTasks((prev) => prev.filter((t) => t.id !== deletedId))
+                  }
+                  onUpdated={(updated) =>
+                    setTasks((prev) =>
+                      updated.project_id === id
+                        ? prev.map((t) => (t.id === updated.id ? updated : t))
+                        : prev.filter((t) => t.id !== updated.id),
+                    )
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+
+          <div className="rounded-2xl bg-border/30 p-3">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+              Completed
+            </h3>
+            {completedTasks.length === 0 ? (
+              <p className="text-sm text-muted">None yet.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {completedTasks.map((task) => (
+                  <li key={task.id}>
+                    <Link
+                      href={`/app/projects/${task.project_id}/tasks/${task.id}`}
+                      className="block hover:text-accent"
+                    >
+                      <p className="truncate text-sm text-muted line-through">{task.title}</p>
+                      {task.completed_at && (
+                        <p className="text-xs text-muted">{formatTimestamp(task.completed_at)}</p>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
 
       {records.length > 0 && showRecords && (

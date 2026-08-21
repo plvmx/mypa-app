@@ -1,17 +1,14 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
   createPaTask,
   updatePaTask,
   deletePaTask,
-  startTimer,
-  stopTimer,
   savePaTaskSteps,
 } from '@/lib/services/paTaskService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { formatTimestamp } from '@/lib/formatTimestamp';
-import { getTrackedSeconds, isTimerRunning, formatDuration } from '@/lib/timeTracking';
 import TaskStepsInput from '@/components/TaskStepsInput';
 import type { PaTask, TaskStep } from '@/lib/types';
 
@@ -38,14 +35,11 @@ export default function PaTaskForm({
   projectId,
   initial,
   onSaved,
-  onTimerToggled,
   onCancel,
 }: {
   projectId: string;
   initial?: PaTask;
   onSaved: (task: PaTask) => void;
-  /** Called when the timer is started/stopped, separately from `onSaved` so a timer toggle doesn't trigger a post-save redirect. */
-  onTimerToggled?: (task: PaTask) => void;
   onCancel?: () => void;
 }) {
   const [title, setTitle] = useState(initial?.title ?? '');
@@ -65,36 +59,9 @@ export default function PaTaskForm({
   const [completedAt, setCompletedAt] = useState<string | null>(initial?.completed_at ?? null);
   const [dueAt, setDueAt] = useState(initial?.due_at ?? null);
   const [remindAt, setRemindAt] = useState(initial?.remind_at ?? null);
-  const [timeEntries, setTimeEntries] = useState(initial?.time_entries ?? []);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-
-  const [timerBusy, setTimerBusy] = useState(false);
-  const [timerError, setTimerError] = useState('');
-  const [now, setNow] = useState(() => new Date());
-  const running = isTimerRunning(timeEntries);
-
-  useEffect(() => {
-    if (!running) return;
-    const interval = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, [running]);
-
-  async function handleToggleTimer() {
-    if (!initial || timerBusy) return;
-    setTimerBusy(true);
-    setTimerError('');
-    try {
-      const updated = running ? await stopTimer(initial.id) : await startTimer(initial.id);
-      setTimeEntries(updated.time_entries);
-      onTimerToggled?.(updated);
-    } catch (err) {
-      setTimerError(getErrorMessage(err));
-    } finally {
-      setTimerBusy(false);
-    }
-  }
 
   function handleToggleStarted(checked: boolean) {
     setStarted(checked);
@@ -212,50 +179,6 @@ export default function PaTaskForm({
           />
         </div>
       </div>
-
-      {initial && (
-        <div className="rounded-xl border border-border p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Time tracked</p>
-              <p className="text-sm text-muted">
-                {formatDuration(getTrackedSeconds(timeEntries, now))}
-                {running && ' · running'}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleToggleTimer}
-              disabled={timerBusy}
-              className={`rounded-xl px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${
-                running ? 'bg-red-500' : 'bg-accent'
-              }`}
-            >
-              {running ? 'Stop' : 'Start'}
-            </button>
-          </div>
-          {timeEntries.length > 0 && (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-xs text-muted">
-                {timeEntries.length} session{timeEntries.length === 1 ? '' : 's'}
-              </summary>
-              <ul className="mt-1 flex flex-col gap-1">
-                {timeEntries.map((entry, i) => (
-                  <li key={i} className="text-xs text-muted">
-                    {formatTimestamp(entry.started_at)} –{' '}
-                    {entry.ended_at ? formatTimestamp(entry.ended_at) : 'running'}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-          {timerError && (
-            <p className="mt-2 text-sm text-red-500" role="alert">
-              {timerError}
-            </p>
-          )}
-        </div>
-      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div>

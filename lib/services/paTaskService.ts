@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient';
-import type { PaTask, TaskStep, TimeEntry } from '@/lib/types';
+import type { PaTask, TaskStep } from '@/lib/types';
 
 /** Either the browser client or a per-request server client — both share this shape. */
 type Client = typeof supabase;
@@ -154,52 +154,6 @@ export async function updatePaTask(id: string, input: UpdatePaTaskInput): Promis
   const { data, error } = await supabase
     .from(TABLE)
     .update(patch)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return normalizeTask(data as PaTask);
-}
-
-/**
- * Start a new time-tracking session on a task. Throws if a session is
- * already running — stop it first.
- */
-export async function startTimer(id: string): Promise<PaTask> {
-  const current = await getPaTaskById(id);
-  if (!current) throw new Error('Task not found');
-  if (current.time_entries.some((entry) => entry.ended_at === null)) {
-    throw new Error('A timer is already running for this task');
-  }
-
-  const entries: TimeEntry[] = [
-    ...current.time_entries,
-    { started_at: new Date().toISOString(), ended_at: null },
-  ];
-  const { data, error } = await supabase
-    .from(TABLE)
-    .update({ time_entries: entries })
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return normalizeTask(data as PaTask);
-}
-
-/** Stop the currently-running time-tracking session on a task. */
-export async function stopTimer(id: string): Promise<PaTask> {
-  const current = await getPaTaskById(id);
-  if (!current) throw new Error('Task not found');
-  const openIndex = current.time_entries.findIndex((entry) => entry.ended_at === null);
-  if (openIndex === -1) throw new Error('No timer is running for this task');
-
-  const now = new Date().toISOString();
-  const entries = current.time_entries.map((entry, i) =>
-    i === openIndex ? { ...entry, ended_at: now } : entry,
-  );
-  const { data, error } = await supabase
-    .from(TABLE)
-    .update({ time_entries: entries })
     .eq('id', id)
     .select()
     .single();
