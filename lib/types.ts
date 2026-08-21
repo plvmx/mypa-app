@@ -81,7 +81,8 @@ export interface TaskStep {
  * back to null if unchecked. `steps` is an ordered checklist, each with its
  * own completed flag + timestamp. `due_at`/`remind_at` are plain nullable
  * timestamps surfaced in-app (badges, the Today view) — there is no push/email
- * delivery yet.
+ * delivery yet. `position` orders open tasks for drag-reordering (see
+ * lib/taskOrder.ts); lower sorts first.
  */
 export interface PaTask {
   id: string;
@@ -95,6 +96,7 @@ export interface PaTask {
   completed_at: string | null;
   due_at: string | null;
   remind_at: string | null;
+  position: number;
   created_at: string;
   updated_at: string;
 }

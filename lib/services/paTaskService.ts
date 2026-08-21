@@ -14,7 +14,8 @@ type Client = typeof supabase;
  * default, since they must reflect the moment the checkbox was toggled and
  * be cleared back to null if unchecked. Re-saving an already-checked box
  * (e.g. editing the title while started/completed stay true) preserves the
- * original timestamp rather than bumping it.
+ * original timestamp rather than bumping it. `position` (open-task sort
+ * order) is likewise set here, not by a DB default — see lib/taskOrder.ts.
  */
 
 const TABLE = 'pa_tasks';
@@ -29,6 +30,8 @@ export interface CreatePaTaskInput {
   completed?: boolean;
   due_at?: string | null;
   remind_at?: string | null;
+  /** Sort position among open tasks; defaults to "now" (end of the list) if omitted. */
+  position?: number;
 }
 
 /** Fields a caller may change when updating a task. All optional. */
@@ -41,6 +44,8 @@ export interface UpdatePaTaskInput {
   completed?: boolean;
   due_at?: string | null;
   remind_at?: string | null;
+  /** New sort position, e.g. from a drag-reorder (see lib/taskOrder.ts). */
+  position?: number;
 }
 
 /** Backfill `images` on rows written before that field existed. */
@@ -115,6 +120,7 @@ export async function createPaTask(input: CreatePaTaskInput): Promise<PaTask> {
         completed_at: completed ? now : null,
         due_at: input.due_at ?? null,
         remind_at: input.remind_at ?? null,
+        position: input.position ?? Date.now(),
       },
     ])
     .select()
@@ -135,6 +141,7 @@ export async function updatePaTask(id: string, input: UpdatePaTaskInput): Promis
   if (input.steps !== undefined) patch.steps = cleanSteps(input.steps);
   if (input.due_at !== undefined) patch.due_at = input.due_at;
   if (input.remind_at !== undefined) patch.remind_at = input.remind_at;
+  if (input.position !== undefined) patch.position = input.position;
 
   if (input.started !== undefined || input.completed !== undefined) {
     const current = await getPaTaskById(id);
