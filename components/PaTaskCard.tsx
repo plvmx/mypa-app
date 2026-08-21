@@ -1,11 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, type MouseEvent } from 'react';
-import { deletePaTask, startTimer, stopTimer, updatePaTask } from '@/lib/services/paTaskService';
+import { useState } from 'react';
+import { deletePaTask, updatePaTask } from '@/lib/services/paTaskService';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { formatTimestamp } from '@/lib/formatTimestamp';
-import { getTrackedSeconds, isTimerRunning, formatDuration } from '@/lib/timeTracking';
 import ProjectPicker from '@/components/ProjectPicker';
 import type { PaTask, Project } from '@/lib/types';
 
@@ -40,18 +39,8 @@ export default function PaTaskCard({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [timerBusy, setTimerBusy] = useState(false);
-  const [now, setNow] = useState(() => new Date());
   const [showMovePicker, setShowMovePicker] = useState(false);
   const [moveError, setMoveError] = useState('');
-
-  const running = isTimerRunning(task.time_entries);
-
-  useEffect(() => {
-    if (!running) return;
-    const interval = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, [running]);
 
   async function handleDelete() {
     if (busy) return;
@@ -64,21 +53,6 @@ export default function PaTaskCard({
     } catch (err) {
       setError(getErrorMessage(err));
       setBusy(false);
-    }
-  }
-
-  async function handleToggleTimer(e: MouseEvent) {
-    e.preventDefault();
-    if (timerBusy) return;
-    setTimerBusy(true);
-    setError('');
-    try {
-      const updated = running ? await stopTimer(task.id) : await startTimer(task.id);
-      onUpdated?.(updated);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setTimerBusy(false);
     }
   }
 
@@ -103,8 +77,7 @@ export default function PaTaskCard({
         ? `Started ${formatTimestamp(task.started_at)}`
         : 'Not started';
 
-  const trackedSeconds = getTrackedSeconds(task.time_entries, now);
-  const badge = task.due_at ? dueBadge(task.due_at, task.completed, now) : null;
+  const badge = task.due_at ? dueBadge(task.due_at, task.completed, new Date()) : null;
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
@@ -128,25 +101,10 @@ export default function PaTaskCard({
             )}
           </div>
         )}
-        {trackedSeconds > 0 && (
-          <p className="mt-1 text-sm text-muted">
-            {formatDuration(trackedSeconds)} tracked{running && ' · running'}
-          </p>
-        )}
       </Link>
       <div className="mt-3 flex items-center justify-between">
         <time className="text-xs text-muted">{formatTimestamp(task.created_at)}</time>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleToggleTimer}
-            disabled={timerBusy}
-            className={`text-xs font-medium disabled:opacity-50 ${
-              running ? 'text-red-500' : 'text-accent'
-            }`}
-          >
-            {running ? 'Stop timer' : 'Start timer'}
-          </button>
           {projects && (
             <button
               type="button"
