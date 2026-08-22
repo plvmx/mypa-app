@@ -14,8 +14,10 @@ type Client = typeof supabase;
  * default, since they must reflect the moment the checkbox was toggled and
  * be cleared back to null if unchecked. Re-saving an already-checked box
  * (e.g. editing the title while started/completed stay true) preserves the
- * original timestamp rather than bumping it. `position` (open-task sort
- * order) is likewise set here, not by a DB default — see lib/taskOrder.ts.
+ * original timestamp rather than bumping it — unless the caller passes an
+ * explicit `started_at`/`completed_at` (e.g. the user edited the date
+ * directly), which always wins. `position` (open-task sort order) is
+ * likewise set here, not by a DB default — see lib/taskOrder.ts.
  */
 
 const TABLE = 'pa_tasks';
@@ -27,7 +29,11 @@ export interface CreatePaTaskInput {
   title: string;
   steps?: TaskStep[];
   started?: boolean;
+  /** Overrides the default "now" stamp when `started` is true — e.g. backdating from the edit form. */
+  started_at?: string | null;
   completed?: boolean;
+  /** Overrides the default "now" stamp when `completed` is true. */
+  completed_at?: string | null;
   due_at?: string | null;
   remind_at?: string | null;
   /** Sort position among open tasks; defaults to "now" (end of the list) if omitted. */
@@ -41,7 +47,11 @@ export interface UpdatePaTaskInput {
   title?: string;
   steps?: TaskStep[];
   started?: boolean;
+  /** Overrides the auto-stamped value while `started` stays true — e.g. editing the date directly. */
+  started_at?: string | null;
   completed?: boolean;
+  /** Overrides the auto-stamped value while `completed` stays true. */
+  completed_at?: string | null;
   due_at?: string | null;
   remind_at?: string | null;
   /** New sort position, e.g. from a drag-reorder (see lib/taskOrder.ts). */
@@ -115,9 +125,9 @@ export async function createPaTask(input: CreatePaTaskInput): Promise<PaTask> {
         title,
         steps: cleanSteps(input.steps ?? []),
         started,
-        started_at: started ? now : null,
+        started_at: started ? input.started_at ?? now : null,
         completed,
-        completed_at: completed ? now : null,
+        completed_at: completed ? input.completed_at ?? now : null,
         due_at: input.due_at ?? null,
         remind_at: input.remind_at ?? null,
         position: input.position ?? Date.now(),
@@ -143,18 +153,27 @@ export async function updatePaTask(id: string, input: UpdatePaTaskInput): Promis
   if (input.remind_at !== undefined) patch.remind_at = input.remind_at;
   if (input.position !== undefined) patch.position = input.position;
 
-  if (input.started !== undefined || input.completed !== undefined) {
+  if (
+    input.started !== undefined ||
+    input.completed !== undefined ||
+    input.started_at !== undefined ||
+    input.completed_at !== undefined
+  ) {
     const current = await getPaTaskById(id);
     if (!current) throw new Error('Task not found');
     const now = new Date().toISOString();
 
     if (input.started !== undefined) {
       patch.started = input.started;
-      patch.started_at = input.started ? current.started_at ?? now : null;
+      patch.started_at = input.started ? input.started_at ?? current.started_at ?? now : null;
+    } else if (input.started_at !== undefined) {
+      patch.started_at = input.started_at;
     }
     if (input.completed !== undefined) {
       patch.completed = input.completed;
-      patch.completed_at = input.completed ? current.completed_at ?? now : null;
+      patch.completed_at = input.completed ? input.completed_at ?? current.completed_at ?? now : null;
+    } else if (input.completed_at !== undefined) {
+      patch.completed_at = input.completed_at;
     }
   }
 
