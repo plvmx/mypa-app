@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { formatTimestamp } from '@/lib/formatTimestamp';
+import { toLocalInputValue, fromLocalInputValue } from '@/lib/formatTimestamp';
 import ImagePicker from '@/components/ImagePicker';
 import {
   uploadPaTaskStepImage,
@@ -15,7 +15,8 @@ import type { TaskStep } from '@/lib/types';
  * checkbox, and an image picker. Mirrors DynamicListInput's add/remove
  * ("+"/"×") behaviour: always renders at least one row, and only non-last
  * rows can be removed. Checking a step's box stamps it with the current
- * time; unchecking clears the timestamp.
+ * time (editable afterwards via the date input that appears beneath it, to
+ * backdate it); unchecking clears the timestamp.
  *
  * Text/checkbox/add/remove edits go through `onChange` and stay local until
  * the form's Save button is pressed, like every other field. A step's images
@@ -63,6 +64,12 @@ export default function TaskStepsInput({
       completed,
       completed_at: completed ? new Date().toISOString() : null,
     };
+    onChange(next);
+  }
+
+  function handleCompletedAtChange(index: number, value: string) {
+    const next = [...rows];
+    next[index] = { ...next[index], completed_at: fromLocalInputValue(value) };
     onChange(next);
   }
 
@@ -120,10 +127,14 @@ export default function TaskStepsInput({
                   </button>
                 )}
               </div>
-              {step.completed && step.completed_at && (
-                <p className="pl-8 text-xs text-muted">
-                  Completed {formatTimestamp(step.completed_at)}
-                </p>
+              {step.completed && (
+                <input
+                  type="datetime-local"
+                  value={toLocalInputValue(step.completed_at)}
+                  onChange={(e) => handleCompletedAtChange(index, e.target.value)}
+                  aria-label={`Step ${index + 1} completed at`}
+                  className="ml-8 rounded-lg border border-border bg-background px-2 py-1 text-xs outline-none focus:border-accent"
+                />
               )}
               <div className="pl-8">
                 <ImagePicker

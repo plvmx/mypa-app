@@ -179,6 +179,24 @@ describe('createPaTask', () => {
     expect(inserted.started_at).toBe(inserted.completed_at);
   });
 
+  it('honors an explicit started_at/completed_at instead of stamping now', async () => {
+    const builder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await createPaTask({
+      project_id: 'p1',
+      title: 'Backdated task',
+      started: true,
+      started_at: '2026-06-01T00:00:00Z',
+      completed: true,
+      completed_at: '2026-06-02T00:00:00Z',
+    });
+
+    const inserted = builder.insert.mock.calls[0][0][0];
+    expect(inserted.started_at).toBe('2026-06-01T00:00:00Z');
+    expect(inserted.completed_at).toBe('2026-06-02T00:00:00Z');
+  });
+
   it('rejects an empty title without hitting the database', async () => {
     await expect(createPaTask({ project_id: 'p1', title: '   ' })).rejects.toThrow(
       'needs a title',
@@ -235,6 +253,32 @@ describe('updatePaTask', () => {
     expect(updateBuilder.update).toHaveBeenCalledWith({
       completed: false,
       completed_at: null,
+    });
+  });
+
+  it('uses an explicit started_at/completed_at instead of the auto-stamp when both are provided', async () => {
+    const getBuilder = makeQueryBuilder({ data: sampleTask, error: null });
+    const updateBuilder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValueOnce(getBuilder).mockReturnValueOnce(updateBuilder);
+
+    await updatePaTask('t1', { started: true, started_at: '2026-05-01T00:00:00Z' });
+
+    expect(updateBuilder.update).toHaveBeenCalledWith({
+      started: true,
+      started_at: '2026-05-01T00:00:00Z',
+    });
+  });
+
+  it('patches completed_at directly when the date is edited without touching completed', async () => {
+    const completedTask = { ...sampleTask, completed: true, completed_at: '2026-07-05T00:00:00Z' };
+    const getBuilder = makeQueryBuilder({ data: completedTask, error: null });
+    const updateBuilder = makeQueryBuilder({ data: sampleTask, error: null });
+    mockFrom.mockReturnValueOnce(getBuilder).mockReturnValueOnce(updateBuilder);
+
+    await updatePaTask('t1', { completed_at: '2026-07-06T00:00:00Z' });
+
+    expect(updateBuilder.update).toHaveBeenCalledWith({
+      completed_at: '2026-07-06T00:00:00Z',
     });
   });
 

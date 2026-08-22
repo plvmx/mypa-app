@@ -8,28 +8,18 @@ import {
   savePaTaskSteps,
 } from '@/lib/services/paTaskService';
 import { getErrorMessage } from '@/lib/errorUtils';
-import { formatTimestamp } from '@/lib/formatTimestamp';
+import { toLocalInputValue, fromLocalInputValue } from '@/lib/formatTimestamp';
 import TaskStepsInput from '@/components/TaskStepsInput';
 import type { PaTask, TaskStep } from '@/lib/types';
-
-/** `<input type="datetime-local">` uses local "YYYY-MM-DDTHH:mm", not ISO. */
-function toLocalInputValue(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function fromLocalInputValue(value: string): string | null {
-  return value ? new Date(value).toISOString() : null;
-}
 
 /**
  * Create/edit form for a task. Pass `initial` to edit an existing task
  * (fields are pre-filled and saving calls `updatePaTask`); omit it to create
  * a new one under `projectId` (`createPaTask`). Checking Started/Completed
- * stamps the current time locally so it's visible immediately; the save
- * request is the source of truth for what's actually persisted.
+ * stamps the current time locally so it's visible immediately; the date
+ * itself can then be adjusted in the input beneath it (e.g. to backdate it),
+ * same as Due/Remind. The save request is the source of truth for what's
+ * actually persisted.
  */
 export default function PaTaskForm({
   projectId,
@@ -79,7 +69,16 @@ export default function PaTaskForm({
     setSaving(true);
     setError('');
     try {
-      const fields = { title, steps, started, completed, due_at: dueAt, remind_at: remindAt };
+      const fields = {
+        title,
+        steps,
+        started,
+        started_at: startedAt,
+        completed,
+        completed_at: completedAt,
+        due_at: dueAt,
+        remind_at: remindAt,
+      };
       const task = taskId
         ? await updatePaTask(taskId, fields)
         : await createPaTask({ project_id: projectId, ...fields });
@@ -191,8 +190,14 @@ export default function PaTaskForm({
             />
             Started
           </label>
-          {started && startedAt && (
-            <p className="mt-1 pl-7 text-xs text-muted">{formatTimestamp(startedAt)}</p>
+          {started && (
+            <input
+              type="datetime-local"
+              value={toLocalInputValue(startedAt)}
+              onChange={(e) => setStartedAt(fromLocalInputValue(e.target.value))}
+              aria-label="Started at"
+              className="mt-1 ml-7 rounded-lg border border-border bg-background px-2 py-1 text-xs outline-none focus:border-accent"
+            />
           )}
         </div>
         <div>
@@ -205,8 +210,14 @@ export default function PaTaskForm({
             />
             Completed
           </label>
-          {completed && completedAt && (
-            <p className="mt-1 pl-7 text-xs text-muted">{formatTimestamp(completedAt)}</p>
+          {completed && (
+            <input
+              type="datetime-local"
+              value={toLocalInputValue(completedAt)}
+              onChange={(e) => setCompletedAt(fromLocalInputValue(e.target.value))}
+              aria-label="Completed at"
+              className="mt-1 ml-7 rounded-lg border border-border bg-background px-2 py-1 text-xs outline-none focus:border-accent"
+            />
           )}
         </div>
       </div>
