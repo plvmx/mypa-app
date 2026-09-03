@@ -10,15 +10,22 @@ import {
 } from '@/lib/services/paTaskService';
 import type { TaskStep } from '@/lib/types';
 
+/** Grows a textarea's height to fit its content, so long step text is never clipped. */
+function autoResize(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = `${el.scrollHeight}px`;
+}
+
 /**
- * A growable list of steps for a Task — each with its own text, a Completed
- * checkbox, and an image picker. Mirrors DynamicListInput's add/remove
+ * A growable list of steps for a Task — each with its own text, a "Mark as
+ * done" toggle, and an image picker. Mirrors DynamicListInput's add/remove
  * ("+"/"×") behaviour: always renders at least one row, and only non-last
- * rows can be removed. Checking a step's box stamps it with the current
- * time (editable afterwards via the date input that appears beneath it, to
- * backdate it); unchecking clears the timestamp.
+ * rows can be removed. Marking a step done stamps it with the current time
+ * (editable afterwards via the date input that appears beneath it, to
+ * backdate it); un-marking it clears the timestamp.
  *
- * Text/checkbox/add/remove edits go through `onChange` and stay local until
+ * Text/completed/add/remove edits go through `onChange` and stay local until
  * the form's Save button is pressed, like every other field. A step's images
  * are different: `onImagesChange` fires separately so the parent can persist
  * them immediately (see PaTaskForm) — an upload that already landed in
@@ -41,7 +48,7 @@ export default function TaskStepsInput({
 }) {
   const rows =
     values.length > 0 ? values : [{ text: '', completed: false, completed_at: null, images: [] }];
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const inputRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const shouldFocusLast = useRef(false);
 
   useEffect(() => {
@@ -89,23 +96,21 @@ export default function TaskStepsInput({
         {rows.map((step, index) => {
           const isLast = index === rows.length - 1;
           return (
-            <div key={index} className="flex flex-col gap-1">
+            <div key={index} className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={step.completed}
-                  onChange={(e) => handleToggleCompleted(index, e.target.checked)}
-                  aria-label={`Step ${index + 1} completed`}
-                  className="h-5 w-5 shrink-0 accent-accent"
-                />
-                <input
+                <textarea
                   ref={(el) => {
                     inputRefs.current[index] = el;
+                    autoResize(el);
                   }}
                   value={step.text}
-                  onChange={(e) => handleTextChange(index, e.target.value)}
+                  onChange={(e) => {
+                    handleTextChange(index, e.target.value);
+                    autoResize(e.target);
+                  }}
                   placeholder="A step"
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-base outline-none focus:border-accent"
+                  rows={1}
+                  className="w-full resize-none overflow-hidden rounded-xl border border-border bg-background px-3 py-2 text-base outline-none focus:border-accent"
                 />
                 {isLast ? (
                   <button
@@ -127,27 +132,39 @@ export default function TaskStepsInput({
                   </button>
                 )}
               </div>
+              <ImagePicker
+                images={step.images}
+                onChange={(images) => onImagesChange(index, images)}
+                upload={uploadPaTaskStepImage}
+                getUrl={getPaTaskStepImageUrl}
+                remove={removePaTaskStepImage}
+                label=""
+                disabled={imagesDisabled}
+                disabledHint={imagesDisabledHint}
+                leadingButton={
+                  <button
+                    type="button"
+                    onClick={() => handleToggleCompleted(index, !step.completed)}
+                    aria-pressed={step.completed}
+                    className={`shrink-0 rounded-xl border px-4 py-2 text-sm font-medium ${
+                      step.completed
+                        ? 'border-accent bg-accent text-white'
+                        : 'border-border text-muted hover:text-accent'
+                    }`}
+                  >
+                    {step.completed ? '✓ Done' : 'Mark as done'}
+                  </button>
+                }
+              />
               {step.completed && (
                 <input
                   type="datetime-local"
                   value={toLocalInputValue(step.completed_at)}
                   onChange={(e) => handleCompletedAtChange(index, e.target.value)}
                   aria-label={`Step ${index + 1} completed at`}
-                  className="ml-8 rounded-lg border border-border bg-background px-2 py-1 text-xs outline-none focus:border-accent"
+                  className="rounded-lg border border-border bg-background px-2 py-1 text-xs outline-none focus:border-accent"
                 />
               )}
-              <div className="pl-8">
-                <ImagePicker
-                  images={step.images}
-                  onChange={(images) => onImagesChange(index, images)}
-                  upload={uploadPaTaskStepImage}
-                  getUrl={getPaTaskStepImageUrl}
-                  remove={removePaTaskStepImage}
-                  label=""
-                  disabled={imagesDisabled}
-                  disabledHint={imagesDisabledHint}
-                />
-              </div>
             </div>
           );
         })}

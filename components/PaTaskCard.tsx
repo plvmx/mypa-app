@@ -109,7 +109,7 @@ export default function PaTaskCard({
                     </ul>
                   )}
                   {closedSteps.length > 0 && (
-                    <ul className="flex flex-col gap-0.5 text-muted">
+                    <ul className="flex flex-col gap-0.5 rounded-lg bg-yellow-100 p-1.5 text-muted dark:bg-yellow-900/30">
                       {closedSteps.map((step, i) => (
                         <li key={i} className="truncate line-through">
                           ☑ {step.text}
