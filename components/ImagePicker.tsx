@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { getErrorMessage } from '@/lib/errorUtils';
 
 /** Full-screen overlay showing one image at full size; tapping anywhere (or Escape) closes it. */
@@ -49,6 +49,7 @@ export default function ImagePicker({
   label = 'Images',
   disabled,
   disabledHint,
+  leadingButton,
 }: {
   images: string[];
   onChange: (images: string[]) => void;
@@ -61,6 +62,8 @@ export default function ImagePicker({
   disabled?: boolean;
   /** Shown next to the button while `disabled`. */
   disabledHint?: string;
+  /** Extra control rendered in the same row as, and to the left of, the "+ Add image" button (e.g. a caller-owned action button). */
+  leadingButton?: ReactNode;
 }) {
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
@@ -156,6 +159,7 @@ export default function ImagePicker({
         onChange={(e) => handleFilesSelected(e.target.files)}
       />
       <div className="flex items-center gap-2">
+        {leadingButton}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
