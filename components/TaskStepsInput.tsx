@@ -89,11 +89,18 @@ export default function TaskStepsInput({
     onChange(rows.filter((_, i) => i !== index));
   }
 
+  // Render active steps first, completed ones at the bottom — the array
+  // order used by add/remove/refs (and persisted to the DB) is untouched;
+  // only the display order changes, via each step's original index.
+  const displayOrder = rows
+    .map((step, index) => ({ step, index }))
+    .sort((a, b) => Number(a.step.completed) - Number(b.step.completed));
+
   return (
     <div>
       <label className="mb-1 block text-sm font-medium">Steps</label>
       <div className="flex flex-col gap-3">
-        {rows.map((step, index) => {
+        {displayOrder.map(({ step, index }) => {
           const isLast = index === rows.length - 1;
           return (
             <div
