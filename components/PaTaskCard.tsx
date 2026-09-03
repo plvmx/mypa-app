@@ -98,11 +98,7 @@ export default function PaTaskCard({
                 <p className="text-muted">
                   {closedSteps.length}/{task.steps.length} steps done
                 </p>
-                <div
-                  className={`mt-1 grid gap-2 ${
-                    openSteps.length > 0 && closedSteps.length > 0 ? 'grid-cols-2' : 'grid-cols-1'
-                  }`}
-                >
+                <div className="mt-1 flex flex-col gap-2">
                   {openSteps.length > 0 && (
                     <ul className="flex flex-col gap-0.5 text-muted">
                       {openSteps.map((step, i) => (
@@ -113,7 +109,7 @@ export default function PaTaskCard({
                     </ul>
                   )}
                   {closedSteps.length > 0 && (
-                    <ul className="flex flex-col gap-0.5 rounded-lg bg-yellow-100 p-1.5 text-muted dark:bg-yellow-900/30">
+                    <ul className="flex flex-col gap-0.5 text-muted">
                       {closedSteps.map((step, i) => (
                         <li key={i} className="truncate line-through">
                           ☑ {step.text}
