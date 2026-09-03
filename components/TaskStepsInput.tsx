@@ -92,11 +92,14 @@ export default function TaskStepsInput({
   return (
     <div>
       <label className="mb-1 block text-sm font-medium">Steps</label>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         {rows.map((step, index) => {
           const isLast = index === rows.length - 1;
           return (
-            <div key={index} className="flex flex-col gap-2">
+            <div
+              key={index}
+              className="flex flex-col gap-2 rounded-xl border border-border bg-background p-3"
+            >
               <div className="flex items-center gap-2">
                 <textarea
                   ref={(el) => {
@@ -110,7 +113,7 @@ export default function TaskStepsInput({
                   }}
                   placeholder="A step"
                   rows={1}
-                  className="w-full resize-none overflow-hidden rounded-xl border border-border bg-background px-3 py-2 text-base outline-none focus:border-accent"
+                  className="w-full resize-none overflow-hidden rounded-xl border border-border bg-card px-3 py-2 text-base outline-none focus:border-accent"
                 />
                 {isLast ? (
                   <button
@@ -162,7 +165,7 @@ export default function TaskStepsInput({
                   value={toLocalInputValue(step.completed_at)}
                   onChange={(e) => handleCompletedAtChange(index, e.target.value)}
                   aria-label={`Step ${index + 1} completed at`}
-                  className="rounded-lg border border-border bg-background px-2 py-1 text-xs outline-none focus:border-accent"
+                  className="rounded-lg border border-border bg-card px-2 py-1 text-xs outline-none focus:border-accent"
                 />
               )}
             </div>
